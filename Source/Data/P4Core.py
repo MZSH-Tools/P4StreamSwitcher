@@ -75,8 +75,11 @@ def GetOpenedFiles(p4: P4, client_name: str) -> list:
     """获取指定客户端未提交的文件列表"""
     try:
         return p4.run("opened", "-C", client_name)
-    except P4Exception:
-        return []
+    except P4Exception as e:
+        err_str = str(e).lower()
+        if "not opened" in err_str or "no file(s)" in err_str:
+            return []
+        raise
 
 
 def GetHaveList(p4: P4, command_target: str) -> set:

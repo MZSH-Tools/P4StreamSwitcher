@@ -191,6 +191,8 @@ class AppCallbacks:
                 self.ui.LogMessage("文件已经是最新状态。")
             else:
                 self.ui.LogMessage("同步操作中发生错误：" + "\n".join(e.errors))
+        except Exception as e:
+            self.ui.LogMessage(f"操作中发生错误：{e}")
         finally:
             if p4_thread and p4_thread.connected():
                 p4_thread.disconnect()
