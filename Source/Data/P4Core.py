@@ -2,6 +2,21 @@ from P4 import P4, P4Exception, OutputHandler
 import socket
 import os
 import fnmatch
+import subprocess
+import platform
+
+
+def IsP4GUIRunning() -> bool:
+    """检测 P4V 是否正在运行"""
+    try:
+        if platform.system() == 'Windows':
+            output = subprocess.check_output(['tasklist'], universal_newlines=True)
+            return 'p4v.exe' in output.lower()
+        else:
+            output = subprocess.check_output(['pgrep', '-x', 'p4v'], stderr=subprocess.DEVNULL)
+            return bool(output.strip())
+    except Exception:
+        return False
 
 
 def GetLocalStreamClients(p4: P4):

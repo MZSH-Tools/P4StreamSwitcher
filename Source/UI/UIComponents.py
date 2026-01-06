@@ -74,10 +74,16 @@ class AppUI:
         self.workspace_entry = tk.Entry(self.frame, textvariable=self.p4_workspace_var)
         self.workspace_entry.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_entry, 'normal', self.workspace_entry.cget('fg')])
+        self.workspace_default_fg = self.workspace_entry.cget('fg')
+
+        # 浏览按钮
+        self.browse_button = tk.Button(self.frame, text="浏览...")
+        self.browse_button.grid(row=row_index, column=2, padx=5, pady=5)
+        self.widgets_default_settings.append([self.browse_button, 'normal', self.browse_button.cget('fg')])
 
         row_index += 1
         # 一键应用按钮
-        self.apply_button = tk.Button(self.frame, text="一键应用")
+        self.apply_button = tk.Button(self.frame, text="一键切换")
         self.apply_button.grid(row=row_index, column=0, columnspan=2, pady=10)
         self.widgets_default_settings.append([self.apply_button, 'normal', self.apply_button.cget('fg')])
 
@@ -173,3 +179,10 @@ class AppUI:
             widget.configure(state=default_state)
             if default_fg:
                 widget.configure(fg=default_fg)
+
+    def SetWorkspaceState(self, exists: bool):
+        """设置工作区目录显示状态（存在=正常，不存在=置灰）"""
+        if exists:
+            self.workspace_entry.configure(fg=self.workspace_default_fg)
+        else:
+            self.workspace_entry.configure(fg='grey')

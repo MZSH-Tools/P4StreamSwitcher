@@ -1,14 +1,16 @@
 import os
 import threading
-from tkinter import messagebox
+from tkinter import messagebox, filedialog
 from P4 import P4, P4Exception
 
 from Source.Data.P4Core import (
     GetLocalStreamClients, GetClientInfo, GetMainlineProjects,
     GetProjectStreams, ParseStreamPath, SwitchClientStream, GetAllStreams,
     GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
-    SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler
+    SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
+    IsP4GUIRunning
 )
+from Source.Data.WorkspaceCache import WorkspaceCache
 from Source.UI.UIComponents import AppUI
 
 
@@ -25,6 +27,7 @@ class AppCallbacks:
         self.default_stream = ""
         self.default_workspace_root = ""
         self.default_stream_path = ""
+        self.workspace_cache = None
 
         self._BindEvents()
 
@@ -37,6 +40,7 @@ class AppCallbacks:
         self.ui.stream_combo.bind("<Button-1>", self.OnStreamDropdown)
         self.ui.stream_combo.bind("<<ComboboxSelected>>", self.OnStreamSelected)
         self.ui.apply_button.configure(command=self.OnApply)
+        self.ui.browse_button.configure(command=self.OnBrowse)
 
     def OnClientDropdown(self, event=None):
         """客户端下拉框点击事件"""
@@ -45,6 +49,8 @@ class AppCallbacks:
     def OnClientSelected(self, event=None):
         """客户端选择事件"""
         cur_client = self.ui.p4_client_var.get()
+        # 加载该客户端的缓存
+        self.workspace_cache = WorkspaceCache(cur_client)
         client_info = GetClientInfo(self.p4, cur_client)
         if client_info:
             self.select_stream_path = client_info.get('Stream', '')
@@ -72,7 +78,7 @@ class AppCallbacks:
                         self.ui.p4_stream_var.set(parsed[1])
                         self.select_stream_path = stream.get('Stream', '')
                         break
-        self._UpdateWorkspaceText()
+        self._UpdateWorkspaceFromCache()
 
     def OnStreamDropdown(self, event=None):
         """分支下拉框点击事件"""
@@ -81,11 +87,15 @@ class AppCallbacks:
 
     def OnStreamSelected(self, event=None):
         """分支选择事件"""
+        if not self.select_stream_path:
+            return
         path_array = self.select_stream_path.split('/')[-3:-1]
-        self.select_stream_path = f"//{path_array[0]}/{path_array[1]}/{self.ui.p4_stream_var.get()}"
+        if len(path_array) >= 2:
+            self.select_stream_path = f"//{path_array[0]}/{path_array[1]}/{self.ui.p4_stream_var.get()}"
+        self._UpdateWorkspaceFromCache()
 
     def OnApply(self):
-        """一键应用按钮点击事件"""
+        """一键切换按钮点击事件"""
         self.ui.ClearLog()
 
         target_workspace = self.ui.p4_workspace_var.get()
@@ -97,16 +107,38 @@ class AppCallbacks:
         if opened_files:
             count = len(opened_files)
             files_preview = "\n".join([f.get('depotFile', '') for f in opened_files[:5] if isinstance(f, dict)])
-            messagebox.showwarning("无法切换", f"检测到 {count} 个未提交的文件，请先提交或撤销修改。\n\n{files_preview}")
+            messagebox.showwarning("无法切换", f"检测到 {count} 个未提交的文件，请先提交或撤销修改后再切换。\n\n{files_preview}")
             self.ui.LogMessage(f"检测到 {count} 个未提交文件，操作已取消。")
             return
 
-        self.ui.LogMessage("检查通过，无未提交修改。")
+        # 检查 P4V 是否运行中
+        self.ui.LogMessage("正在检查 Perforce GUI 客户端...")
+        if IsP4GUIRunning():
+            messagebox.showwarning("无法切换", "检测到 P4V 正在运行中。\n\n切换工作区时运行 P4V 可能导致未知错误，请先关闭 P4V 后重试。")
+            self.ui.LogMessage("检测到 P4V 运行中，操作已取消。")
+            return
+
+        # 检查目录是否存在
+        if not os.path.isdir(target_workspace):
+            result = messagebox.askyesno("目录不存在",
+                f"目录 {target_workspace} 不存在。\n\n是否创建该目录并继续切换？")
+            if not result:
+                self.ui.LogMessage("用户取消操作。")
+                return
+            os.makedirs(target_workspace, exist_ok=True)
+            self.ui.LogMessage(f"已创建目录: {target_workspace}")
+
+        self.ui.LogMessage("检查通过，开始切换...")
         self.ui.LogMessage(f"切换客户端为：{client_name}")
         self.ui.LogMessage(f"切换流路径：{self.select_stream_path}")
         self.ui.LogMessage(f"切换工作区路径：{target_workspace}")
 
         SwitchClientStream(self.p4, client_name, self.select_stream_path, target_workspace)
+
+        # 保存工作区目录到缓存
+        if self.workspace_cache:
+            self.workspace_cache.Set(self.select_stream_path, target_workspace)
+
         self._ResetDefaultVars()
 
         self.ui.DisableUI()
@@ -200,9 +232,26 @@ class AppCallbacks:
         self.ui.HideProgressBar()
         self.ui.EnableUI()
 
-    def _UpdateWorkspaceText(self):
-        """更新工作区目录显示"""
-        self.ui.p4_workspace_var.set(os.path.join(self.default_workspace_root, self.ui.p4_project_var.get()))
+    def _UpdateWorkspaceFromCache(self):
+        """根据缓存或默认值更新工作区目录"""
+        cached = self.workspace_cache.Get(self.select_stream_path) if self.workspace_cache else None
+
+        if cached:
+            self.ui.p4_workspace_var.set(cached)
+            exists = os.path.isdir(cached)
+        else:
+            default_path = os.path.join(self.default_workspace_root, self.ui.p4_project_var.get())
+            self.ui.p4_workspace_var.set(default_path)
+            exists = os.path.isdir(default_path)
+
+        self.ui.SetWorkspaceState(exists)
+
+    def OnBrowse(self):
+        """浏览按钮点击事件"""
+        path = filedialog.askdirectory()
+        if path:
+            self.ui.p4_workspace_var.set(path)
+            self.ui.SetWorkspaceState(os.path.isdir(path))
 
     def _ResetDefaultVars(self):
         """重置默认变量"""
@@ -221,7 +270,7 @@ class AppCallbacks:
             else:
                 self.default_workspace_root = workspace_root
 
-        self._UpdateWorkspaceText()
+        self._UpdateWorkspaceFromCache()
 
     def Initialize(self):
         """初始化回调状态"""
