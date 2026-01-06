@@ -124,64 +124,60 @@ class AppCallbacks:
             p4_thread.connect()
             p4_thread.client = self.ui.p4_client_var.get()
 
-            if self.ui.auto_sync_var.get():
-                # 步骤1: sync -k 更新 have list
-                self.ui.UpdateOperationLabel("正在更新文件索引...")
-                self.ui.LogMessage("执行 sync -k 更新 have list...")
-                RunSync(p4_thread, command_target, flush_only=True)
-                self.ui.LogMessage("have list 更新完成。")
+            # 步骤1: sync -k 更新 have list
+            self.ui.UpdateOperationLabel("正在更新文件索引...")
+            self.ui.LogMessage("执行 sync -k 更新 have list...")
+            RunSync(p4_thread, command_target, flush_only=True)
+            self.ui.LogMessage("have list 更新完成。")
 
-                # 步骤2: 解析 .p4ignore
-                self.ui.UpdateOperationLabel("正在解析 .p4ignore...")
-                self.ui.LogMessage("读取 .p4ignore 规则...")
-                ignore_parser = P4IgnoreParser(workspace_root)
-                self.ui.LogMessage(f"已加载 {len(ignore_parser.patterns)} 条忽略规则。")
+            # 步骤2: 解析 .p4ignore
+            self.ui.UpdateOperationLabel("正在解析 .p4ignore...")
+            self.ui.LogMessage("读取 .p4ignore 规则...")
+            ignore_parser = P4IgnoreParser(workspace_root)
+            self.ui.LogMessage(f"已加载 {len(ignore_parser.patterns)} 条忽略规则。")
 
-                # 步骤3: 获取 have list
-                self.ui.UpdateOperationLabel("正在获取文件列表...")
-                self.ui.LogMessage("获取 have list...")
-                have_paths = GetHaveList(p4_thread, command_target)
-                self.ui.LogMessage(f"have list 包含 {len(have_paths)} 个文件。")
+            # 步骤3: 获取 have list
+            self.ui.UpdateOperationLabel("正在获取文件列表...")
+            self.ui.LogMessage("获取 have list...")
+            have_paths = GetHaveList(p4_thread, command_target)
+            self.ui.LogMessage(f"have list 包含 {len(have_paths)} 个文件。")
 
-                # 步骤4: 删除多余文件
-                if self.ui.auto_clean_var.get():
-                    self.ui.UpdateOperationLabel("正在清理多余文件...")
-                    self.ui.LogMessage("检测并删除多余的版本控制文件...")
-                    deleted_count = DeleteObsoleteFiles(workspace_root, have_paths, ignore_parser, self.ui.LogMessage)
-                    self.ui.LogMessage(f"已删除 {deleted_count} 个多余文件。")
+            # 步骤4: 删除多余文件
+            self.ui.UpdateOperationLabel("正在清理多余文件...")
+            self.ui.LogMessage("检测并删除多余的版本控制文件...")
+            deleted_count = DeleteObsoleteFiles(workspace_root, have_paths, ignore_parser, self.ui.LogMessage)
+            self.ui.LogMessage(f"已删除 {deleted_count} 个多余文件。")
 
-                # 步骤5: diff -se 覆盖内容不同的文件
-                self.ui.UpdateOperationLabel("正在检测修改文件...")
-                self.ui.LogMessage("执行 diff -se 检测内容不同的文件...")
-                different_files = GetDifferentFiles(p4_thread, command_target)
-                self.ui.LogMessage(f"发现 {len(different_files)} 个内容不同的文件。")
+            # 步骤5: diff -se 覆盖内容不同的文件
+            self.ui.UpdateOperationLabel("正在检测修改文件...")
+            self.ui.LogMessage("执行 diff -se 检测内容不同的文件...")
+            different_files = GetDifferentFiles(p4_thread, command_target)
+            self.ui.LogMessage(f"发现 {len(different_files)} 个内容不同的文件。")
 
-                # 步骤6: diff -sd 下载缺失的文件
-                self.ui.UpdateOperationLabel("正在检测缺失文件...")
-                self.ui.LogMessage("执行 diff -sd 检测缺失的文件...")
-                missing_files = GetMissingFiles(p4_thread, command_target)
-                self.ui.LogMessage(f"发现 {len(missing_files)} 个缺失的文件。")
+            # 步骤6: diff -sd 下载缺失的文件
+            self.ui.UpdateOperationLabel("正在检测缺失文件...")
+            self.ui.LogMessage("执行 diff -sd 检测缺失的文件...")
+            missing_files = GetMissingFiles(p4_thread, command_target)
+            self.ui.LogMessage(f"发现 {len(missing_files)} 个缺失的文件。")
 
-                # 步骤7: 同步问题文件（先覆盖不同，再下载缺失）
-                problem_files = different_files + missing_files
-                if problem_files:
-                    self.ui.ShowProgressBar()
-                    total_files = len(problem_files)
-                    processed = [0]
+            # 步骤7: 同步问题文件（先覆盖不同，再下载缺失）
+            problem_files = different_files + missing_files
+            if problem_files:
+                self.ui.ShowProgressBar()
+                total_files = len(problem_files)
 
-                    def on_file_processed(count, depot_file):
-                        processed[0] = count
-                        self.ui.UpdateProgress(count, total_files)
-                        self.ui.LogMessage(depot_file)
+                def on_file_processed(count, depot_file):
+                    self.ui.UpdateProgress(count, total_files)
+                    self.ui.LogMessage(depot_file)
 
-                    handler = SyncOutputHandler(on_file_processed, self.ui.LogMessage)
+                handler = SyncOutputHandler(on_file_processed, self.ui.LogMessage)
 
-                    self.ui.UpdateOperationLabel(f"正在同步 {total_files} 个文件...")
-                    self.ui.LogMessage(f"执行 sync -f --parallel 同步 {total_files} 个文件...")
-                    SyncFiles(p4_thread, problem_files, handler, parallel=4)
-                    self.ui.LogMessage("文件同步完成。")
-                else:
-                    self.ui.LogMessage("所有文件已是最新状态。")
+                self.ui.UpdateOperationLabel(f"正在同步 {total_files} 个文件...")
+                self.ui.LogMessage(f"执行 sync -f --parallel 同步 {total_files} 个文件...")
+                SyncFiles(p4_thread, problem_files, handler, parallel=4)
+                self.ui.LogMessage("文件同步完成。")
+            else:
+                self.ui.LogMessage("所有文件已是最新状态。")
 
             self.ui.UpdateOperationLabel("操作已完成。")
 

@@ -27,8 +27,6 @@ class AppUI:
         self.p4_project_var = tk.StringVar()
         self.p4_stream_var = tk.StringVar()
         self.p4_workspace_var = tk.StringVar()
-        self.auto_sync_var = tk.BooleanVar(value=True)
-        self.auto_clean_var = tk.BooleanVar(value=True)
 
         self.widgets_default_settings = []
         self._CreateWidgets()
@@ -76,18 +74,6 @@ class AppUI:
         self.workspace_entry = tk.Entry(self.frame, textvariable=self.p4_workspace_var)
         self.workspace_entry.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_entry, 'normal', self.workspace_entry.cget('fg')])
-
-        row_index += 1
-        # 自动链接复选框
-        self.auto_sync_check = tk.Checkbutton(self.frame, text="自动链接服务器文件", variable=self.auto_sync_var)
-        self.auto_sync_check.grid(row=row_index, column=1, sticky='w')
-        self.widgets_default_settings.append([self.auto_sync_check, 'normal', self.auto_sync_check.cget('fg')])
-
-        row_index += 1
-        # 自动清理复选框
-        self.auto_clean_check = tk.Checkbutton(self.frame, text="自动清理多余文件（根据 .p4ignore 保留缓存）", variable=self.auto_clean_var)
-        self.auto_clean_check.grid(row=row_index, column=1, sticky='w')
-        self.widgets_default_settings.append([self.auto_clean_check, 'normal', self.auto_clean_check.cget('fg')])
 
         row_index += 1
         # 一键应用按钮
