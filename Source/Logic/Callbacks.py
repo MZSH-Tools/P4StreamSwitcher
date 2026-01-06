@@ -1,12 +1,13 @@
 import os
 import threading
+from tkinter import messagebox
 from P4 import P4, P4Exception
 
 from Source.Data.P4Core import (
     GetLocalStreamClients, GetClientInfo, GetMainlineProjects,
-    GetProjectStreams, ParseStreamPath, SwitchClientStream,
-    CountSyncFiles, CountCleanFiles, RunSync, RunClean, GetAllStreams,
-    SyncOutputHandler
+    GetProjectStreams, ParseStreamPath, SwitchClientStream, GetAllStreams,
+    GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
+    SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler
 )
 from Source.UI.UIComponents import AppUI
 
@@ -90,6 +91,17 @@ class AppCallbacks:
         target_workspace = self.ui.p4_workspace_var.get()
         client_name = self.ui.p4_client_var.get()
 
+        # 检查未提交的修改
+        self.ui.LogMessage("正在检查未提交的修改...")
+        opened_files = GetOpenedFiles(self.p4, client_name)
+        if opened_files:
+            count = len(opened_files)
+            files_preview = "\n".join([f.get('depotFile', '') for f in opened_files[:5] if isinstance(f, dict)])
+            messagebox.showwarning("无法切换", f"检测到 {count} 个未提交的文件，请先提交或撤销修改。\n\n{files_preview}")
+            self.ui.LogMessage(f"检测到 {count} 个未提交文件，操作已取消。")
+            return
+
+        self.ui.LogMessage("检查通过，无未提交修改。")
         self.ui.LogMessage(f"切换客户端为：{client_name}")
         self.ui.LogMessage(f"切换流路径：{self.select_stream_path}")
         self.ui.LogMessage(f"切换工作区路径：{target_workspace}")
@@ -106,45 +118,75 @@ class AppCallbacks:
         try:
             self.ui.UpdateOperationLabel("正在连接服务器...")
             command_target = f"//{self.ui.p4_client_var.get()}/..."
+            workspace_root = self.ui.p4_workspace_var.get()
 
             p4_thread = P4()
             p4_thread.connect()
 
-            total_files = 0
-
             if self.ui.auto_sync_var.get():
-                total_files += CountSyncFiles(p4_thread, command_target)
+                # 步骤1: sync -k 更新 have list
+                self.ui.UpdateOperationLabel("正在更新文件索引...")
+                self.ui.LogMessage("执行 sync -k 更新 have list...")
+                RunSync(p4_thread, command_target, flush_only=True)
+                self.ui.LogMessage("have list 更新完成。")
 
-            if self.ui.auto_clean_var.get():
-                total_files += CountCleanFiles(p4_thread, command_target)
+                # 步骤2: 解析 .p4ignore
+                self.ui.UpdateOperationLabel("正在解析 .p4ignore...")
+                self.ui.LogMessage("读取 .p4ignore 规则...")
+                ignore_parser = P4IgnoreParser(workspace_root)
+                self.ui.LogMessage(f"已加载 {len(ignore_parser.patterns)} 条忽略规则。")
 
-            if total_files == 0:
-                total_files = 1
+                # 步骤3: 获取 have list
+                self.ui.UpdateOperationLabel("正在获取文件列表...")
+                self.ui.LogMessage("获取 have list...")
+                have_paths = GetHaveList(p4_thread, command_target)
+                self.ui.LogMessage(f"have list 包含 {len(have_paths)} 个文件。")
 
-            self.ui.ShowProgressBar()
+                # 步骤4: 删除多余文件
+                if self.ui.auto_clean_var.get():
+                    self.ui.UpdateOperationLabel("正在清理多余文件...")
+                    self.ui.LogMessage("检测并删除多余的版本控制文件...")
+                    deleted_count = DeleteObsoleteFiles(workspace_root, have_paths, ignore_parser, self.ui.LogMessage)
+                    self.ui.LogMessage(f"已删除 {deleted_count} 个多余文件。")
 
-            def on_file_processed(processed, depot_file):
-                self.ui.UpdateProgress(processed, total_files)
-                self.ui.LogMessage(depot_file)
+                # 步骤5: diff -se 覆盖内容不同的文件
+                self.ui.UpdateOperationLabel("正在检测修改文件...")
+                self.ui.LogMessage("执行 diff -se 检测内容不同的文件...")
+                different_files = GetDifferentFiles(p4_thread, command_target)
+                self.ui.LogMessage(f"发现 {len(different_files)} 个内容不同的文件。")
 
-            handler = SyncOutputHandler(on_file_processed, self.ui.LogMessage)
+                # 步骤6: diff -sd 下载缺失的文件
+                self.ui.UpdateOperationLabel("正在检测缺失文件...")
+                self.ui.LogMessage("执行 diff -sd 检测缺失的文件...")
+                missing_files = GetMissingFiles(p4_thread, command_target)
+                self.ui.LogMessage(f"发现 {len(missing_files)} 个缺失的文件。")
 
-            if self.ui.auto_sync_var.get():
-                self.ui.UpdateOperationLabel("正在链接文件...")
-                self.ui.LogMessage("开始执行 sync -k 命令...")
-                RunSync(p4_thread, command_target, handler)
-                self.ui.LogMessage("sync -k 命令已完成，文件状态更新完成。")
+                # 步骤7: 同步问题文件（先覆盖不同，再下载缺失）
+                problem_files = different_files + missing_files
+                if problem_files:
+                    self.ui.ShowProgressBar()
+                    total_files = len(problem_files)
+                    processed = [0]
 
-            if self.ui.auto_clean_var.get():
-                self.ui.UpdateOperationLabel("正在清理工作区...")
-                self.ui.LogMessage("开始执行 clean 命令...")
-                RunClean(p4_thread, command_target, handler)
-                self.ui.LogMessage("clean 命令已完成，工作区已清理。")
+                    def on_file_processed(count, depot_file):
+                        processed[0] = count
+                        self.ui.UpdateProgress(count, total_files)
+                        self.ui.LogMessage(depot_file)
+
+                    handler = SyncOutputHandler(on_file_processed, self.ui.LogMessage)
+
+                    self.ui.UpdateOperationLabel(f"正在同步 {total_files} 个文件...")
+                    self.ui.LogMessage(f"执行 sync -f --parallel 同步 {total_files} 个文件...")
+                    SyncFiles(p4_thread, problem_files, handler, parallel=4)
+                    self.ui.LogMessage("文件同步完成。")
+                else:
+                    self.ui.LogMessage("所有文件已是最新状态。")
 
             self.ui.UpdateOperationLabel("操作已完成。")
 
         except P4Exception as e:
-            if "up-to-date" in str(e) or "no file(s) to reconcile" in str(e):
+            err_str = str(e)
+            if "up-to-date" in err_str or "no file(s)" in err_str:
                 self.ui.LogMessage("文件已经是最新状态。")
             else:
                 self.ui.LogMessage("同步操作中发生错误：" + "\n".join(e.errors))

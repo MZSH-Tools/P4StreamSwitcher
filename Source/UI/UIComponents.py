@@ -85,7 +85,7 @@ class AppUI:
 
         row_index += 1
         # 自动清理复选框
-        self.auto_clean_check = tk.Checkbutton(self.frame, text="自动清理，注：该选项为强制清理所有文件，请谨慎选择", variable=self.auto_clean_var)
+        self.auto_clean_check = tk.Checkbutton(self.frame, text="自动清理多余文件（根据 .p4ignore 保留缓存）", variable=self.auto_clean_var)
         self.auto_clean_check.grid(row=row_index, column=1, sticky='w')
         self.widgets_default_settings.append([self.auto_clean_check, 'normal', self.auto_clean_check.cget('fg')])
 

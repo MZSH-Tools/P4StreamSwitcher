@@ -1,5 +1,7 @@
 from P4 import P4, P4Exception, OutputHandler
 import socket
+import os
+import fnmatch
 
 
 def GetLocalStreamClients(p4: P4):
@@ -69,6 +71,140 @@ def SwitchClientStream(p4: P4, client_name: str, stream_path: str, workspace_roo
     p4.save_client(client_spec)
 
 
+def GetOpenedFiles(p4: P4, client_name: str) -> list:
+    """获取指定客户端未提交的文件列表"""
+    try:
+        return p4.run("opened", "-C", client_name)
+    except P4Exception:
+        return []
+
+
+def GetHaveList(p4: P4, command_target: str) -> set:
+    """获取 have list 中的本地路径集合"""
+    result = p4.run("have", command_target)
+    paths = set()
+    for item in result:
+        if isinstance(item, dict) and item.get('path'):
+            paths.add(os.path.normcase(os.path.normpath(item['path'])))
+    return paths
+
+
+def GetDifferentFiles(p4: P4, command_target: str) -> list:
+    """获取内容不同的文件列表（depot 有，本地内容不同）"""
+    try:
+        result = p4.run("diff", "-se", command_target)
+        return [item.get('depotFile', '') for item in result if isinstance(item, dict)]
+    except P4Exception:
+        return []
+
+
+def GetMissingFiles(p4: P4, command_target: str) -> list:
+    """获取缺失的文件列表（depot 有，本地没有）"""
+    try:
+        result = p4.run("diff", "-sd", command_target)
+        return [item.get('depotFile', '') for item in result if isinstance(item, dict)]
+    except P4Exception:
+        return []
+
+
+def SyncFiles(p4: P4, files: list, handler: OutputHandler = None, parallel: int = 4):
+    """同步指定文件列表（使用 sync -f 强制同步）"""
+    if not files:
+        return
+    if handler:
+        p4.handler = handler
+    args = ["sync", "-f"]
+    if parallel > 0:
+        args.append(f"--parallel=threads={parallel}")
+    args.extend(files)
+    p4.run(*args)
+
+
+class P4IgnoreParser:
+    """解析 .p4ignore 文件"""
+
+    # 默认忽略规则（即使没有 .p4ignore 文件也会应用）
+    DEFAULT_PATTERNS = [
+        "Saved/",
+        "Intermediate/",
+        "DerivedDataCache/",
+        "Binaries/",
+        ".vs/",
+        ".idea/",
+        "__pycache__/",
+        ".git/",
+        "*.log",
+    ]
+
+    def __init__(self, workspace_root: str):
+        self.workspace_root = workspace_root
+        self.patterns = list(self.DEFAULT_PATTERNS)
+        self.negations = []
+        self._Load()
+
+    def _Load(self):
+        """读取并解析 .p4ignore 文件"""
+        p4ignore_path = os.path.join(self.workspace_root, ".p4ignore")
+        if not os.path.exists(p4ignore_path):
+            return
+        with open(p4ignore_path, 'r', encoding='utf-8', errors='ignore') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                if line.startswith('!'):
+                    self.negations.append(line[1:])
+                else:
+                    self.patterns.append(line)
+
+    def ShouldIgnore(self, file_path: str) -> bool:
+        """判断文件是否应该被忽略"""
+        rel_path = os.path.relpath(file_path, self.workspace_root).replace('\\', '/')
+        for pattern in self.negations:
+            if self._Match(rel_path, pattern):
+                return False
+        for pattern in self.patterns:
+            if self._Match(rel_path, pattern):
+                return True
+        return False
+
+    def _Match(self, path: str, pattern: str) -> bool:
+        """匹配路径和模式"""
+        if pattern.endswith('/'):
+            dir_pattern = pattern.rstrip('/')
+            # 检查路径中的所有部分（包括最后一个，以支持目录检查）
+            for part in path.split('/'):
+                if fnmatch.fnmatch(part, dir_pattern):
+                    return True
+            return False
+        if '/' in pattern:
+            return fnmatch.fnmatch(path, pattern)
+        return fnmatch.fnmatch(os.path.basename(path), pattern)
+
+
+def DeleteObsoleteFiles(workspace_root: str, have_paths: set, ignore_parser: P4IgnoreParser, log_callback=None) -> int:
+    """删除多余的版本控制文件（本地有，have list 没有，且不在 .p4ignore 中）"""
+    deleted_count = 0
+    for root, dirs, files in os.walk(workspace_root):
+        dirs[:] = [d for d in dirs if not ignore_parser.ShouldIgnore(os.path.join(root, d))]
+        for file in files:
+            file_path = os.path.join(root, file)
+            normalized_path = os.path.normcase(os.path.normpath(file_path))
+            if normalized_path in have_paths:
+                continue
+            if ignore_parser.ShouldIgnore(file_path):
+                continue
+            try:
+                os.remove(file_path)
+                deleted_count += 1
+                if log_callback:
+                    log_callback(f"删除: {file_path}")
+            except Exception as e:
+                if log_callback:
+                    log_callback(f"删除失败: {file_path} - {e}")
+    return deleted_count
+
+
 class PreviewOutputHandler(OutputHandler):
     """用于统计文件数量的 Handler"""
     def __init__(self):
@@ -105,31 +241,14 @@ class SyncOutputHandler(OutputHandler):
         return OutputHandler.HANDLED
 
 
-def CountSyncFiles(p4: P4, command_target: str):
-    """统计 sync 命令将处理的文件数"""
-    handler = PreviewOutputHandler()
-    p4.handler = handler
-    p4.run("sync", "-k", "-n", command_target)
-    return handler.count
-
-
-def CountCleanFiles(p4: P4, command_target: str):
-    """统计 clean 命令将处理的文件数"""
-    handler = PreviewOutputHandler()
-    p4.handler = handler
-    p4.run("clean", "-n", command_target)
-    return handler.count
-
-
-def RunSync(p4: P4, command_target: str, handler: OutputHandler = None):
-    """执行 sync -k 命令"""
+def RunSync(p4: P4, command_target: str, handler: OutputHandler = None, flush_only: bool = True, parallel: int = 0):
+    """执行 sync 命令（flush_only=True 时只更新 have list，不下载文件）"""
     if handler:
         p4.handler = handler
-    p4.run("sync", "-k", command_target)
-
-
-def RunClean(p4: P4, command_target: str, handler: OutputHandler = None):
-    """执行 clean 命令"""
-    if handler:
-        p4.handler = handler
-    p4.run("clean", command_target)
+    args = ["sync"]
+    if flush_only:
+        args.append("-k")
+    if parallel > 0:
+        args.append(f"--parallel=threads={parallel}")
+    args.append(command_target)
+    p4.run(*args)
