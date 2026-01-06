@@ -122,6 +122,7 @@ class AppCallbacks:
 
             p4_thread = P4()
             p4_thread.connect()
+            p4_thread.client = self.ui.p4_client_var.get()
 
             if self.ui.auto_sync_var.get():
                 # 步骤1: sync -k 更新 have list

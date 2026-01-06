@@ -94,8 +94,11 @@ def GetDifferentFiles(p4: P4, command_target: str) -> list:
     try:
         result = p4.run("diff", "-se", command_target)
         return [item.get('depotFile', '') for item in result if isinstance(item, dict)]
-    except P4Exception:
-        return []
+    except P4Exception as e:
+        err_str = str(e).lower()
+        if "no file(s)" in err_str or "not on client" in err_str:
+            return []
+        raise
 
 
 def GetMissingFiles(p4: P4, command_target: str) -> list:
@@ -103,8 +106,11 @@ def GetMissingFiles(p4: P4, command_target: str) -> list:
     try:
         result = p4.run("diff", "-sd", command_target)
         return [item.get('depotFile', '') for item in result if isinstance(item, dict)]
-    except P4Exception:
-        return []
+    except P4Exception as e:
+        err_str = str(e).lower()
+        if "no file(s)" in err_str or "not on client" in err_str:
+            return []
+        raise
 
 
 def SyncFiles(p4: P4, files: list, handler: OutputHandler = None, parallel: int = 4):
