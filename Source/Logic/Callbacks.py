@@ -239,10 +239,13 @@ class AppCallbacks:
         if cached:
             self.ui.p4_workspace_var.set(cached)
             exists = os.path.isdir(cached)
+            self.ui.SetWorkspaceSource(is_cached=True)
         else:
             default_path = os.path.join(self.default_workspace_root, self.ui.p4_project_var.get())
             self.ui.p4_workspace_var.set(default_path)
             exists = os.path.isdir(default_path)
+            self.ui.SetWorkspaceSource(is_cached=False)
+            self.ui.LogMessage(f"该流没有缓存记录，使用默认路径: {default_path}")
 
         self.ui.SetWorkspaceState(exists)
 
@@ -252,6 +255,7 @@ class AppCallbacks:
         if path:
             self.ui.p4_workspace_var.set(path)
             self.ui.SetWorkspaceState(os.path.isdir(path))
+            self.ui.SetWorkspaceSourceManual()
 
     def _ResetDefaultVars(self):
         """重置默认变量"""

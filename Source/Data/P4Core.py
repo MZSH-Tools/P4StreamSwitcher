@@ -155,7 +155,6 @@ class P4IgnoreParser:
         "Binaries/",
         ".vs/",
         ".idea/",
-        "__pycache__/",
         ".git/",
         "*.log",
     ]

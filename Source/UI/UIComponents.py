@@ -76,10 +76,17 @@ class AppUI:
         self.widgets_default_settings.append([self.workspace_entry, 'normal', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
 
-        # 浏览按钮
-        self.browse_button = tk.Button(self.frame, text="浏览...")
-        self.browse_button.grid(row=row_index, column=2, padx=5, pady=5)
+        # 浏览按钮和来源标签容器
+        self.workspace_button_frame = tk.Frame(self.frame)
+        self.workspace_button_frame.grid(row=row_index, column=2, padx=5, pady=5, sticky='w')
+
+        self.browse_button = tk.Button(self.workspace_button_frame, text="浏览...")
+        self.browse_button.pack(side='left')
         self.widgets_default_settings.append([self.browse_button, 'normal', self.browse_button.cget('fg')])
+
+        # 路径来源标签
+        self.workspace_source_label = tk.Label(self.workspace_button_frame, text="", fg='gray')
+        self.workspace_source_label.pack(side='left', padx=(5, 0))
 
         row_index += 1
         # 一键应用按钮
@@ -186,3 +193,14 @@ class AppUI:
             self.workspace_entry.configure(fg=self.workspace_default_fg)
         else:
             self.workspace_entry.configure(fg='grey')
+
+    def SetWorkspaceSource(self, is_cached: bool):
+        """设置工作区路径来源标签（缓存/默认）"""
+        if is_cached:
+            self.workspace_source_label.configure(text="(缓存)", fg='green')
+        else:
+            self.workspace_source_label.configure(text="(默认)", fg='orange')
+
+    def SetWorkspaceSourceManual(self):
+        """设置工作区路径来源为手动选择"""
+        self.workspace_source_label.configure(text="(手动)", fg='blue')
