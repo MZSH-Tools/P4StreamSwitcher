@@ -76,8 +76,6 @@ class AppUI:
         self.widgets_default_settings.append([self.workspace_entry, 'readonly', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
 
-        # 工作区路径来源颜色
-        self.workspace_source_color = self.workspace_default_fg
 
         row_index += 1
         # 一键应用按钮
@@ -178,18 +176,13 @@ class AppUI:
             if default_fg:
                 widget.configure(fg=default_fg)
 
-    def SetWorkspaceState(self, exists: bool):
-        """设置工作区目录显示状态（存在=来源颜色，不存在=灰色）"""
-        if exists:
-            self.workspace_entry.configure(fg=self.workspace_source_color)
+    def SetWorkspaceSource(self, is_cached: bool):
+        """设置工作区路径来源颜色（缓存=正常，默认=灰色）"""
+        if is_cached:
+            self.workspace_entry.configure(fg=self.workspace_default_fg)
         else:
             self.workspace_entry.configure(fg='grey')
 
-    def SetWorkspaceSource(self, is_cached: bool):
-        """设置工作区路径来源颜色（缓存=绿色，默认=橙色）"""
-        self.workspace_source_color = 'green' if is_cached else 'orange'
-
     def SetWorkspaceSourceManual(self):
-        """设置工作区路径来源为手动选择（蓝色）"""
-        self.workspace_source_color = 'blue'
-        self.workspace_entry.configure(fg='blue')
+        """设置工作区路径来源为手动选择（正常颜色）"""
+        self.workspace_entry.configure(fg=self.workspace_default_fg)

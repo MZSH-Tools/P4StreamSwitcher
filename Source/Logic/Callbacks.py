@@ -238,16 +238,12 @@ class AppCallbacks:
 
         if cached:
             self.ui.p4_workspace_var.set(cached)
-            exists = os.path.isdir(cached)
             self.ui.SetWorkspaceSource(is_cached=True)
         else:
             default_path = os.path.join(self.default_workspace_root, self.ui.p4_project_var.get())
             self.ui.p4_workspace_var.set(default_path)
-            exists = os.path.isdir(default_path)
             self.ui.SetWorkspaceSource(is_cached=False)
             self.ui.LogMessage(f"该流没有缓存记录，使用默认路径: {default_path}")
-
-        self.ui.SetWorkspaceState(exists)
 
     def OnWorkspaceClick(self, event=None):
         """工作区目录点击事件，打开目录选择对话框"""
@@ -258,7 +254,6 @@ class AppCallbacks:
         if path:
             self.ui.p4_workspace_var.set(path)
             self.ui.SetWorkspaceSourceManual()
-            self.ui.SetWorkspaceState(True)
 
     def _FindExistingParent(self, path: str) -> str:
         """向上查找存在的父目录"""
