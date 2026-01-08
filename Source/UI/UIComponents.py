@@ -69,17 +69,12 @@ class AppUI:
         self.widgets_default_settings.append([self.stream_combo, 'readonly', ''])
 
         row_index += 1
-        # 工作区目录
+        # 工作区目录（只读，点击选择）
         tk.Label(self.frame, text="工作区目录:").grid(row=row_index, column=0, padx=10, pady=5, sticky='e')
-        self.workspace_entry = tk.Entry(self.frame, textvariable=self.p4_workspace_var)
-        self.workspace_entry.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
-        self.widgets_default_settings.append([self.workspace_entry, 'normal', self.workspace_entry.cget('fg')])
+        self.workspace_entry = tk.Entry(self.frame, textvariable=self.p4_workspace_var, state='readonly', cursor='hand2')
+        self.workspace_entry.grid(row=row_index, column=1, columnspan=2, padx=10, pady=5, sticky='ew')
+        self.widgets_default_settings.append([self.workspace_entry, 'readonly', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
-
-        # 浏览按钮
-        self.browse_button = tk.Button(self.frame, text="浏览...")
-        self.browse_button.grid(row=row_index, column=2, padx=5, pady=5)
-        self.widgets_default_settings.append([self.browse_button, 'normal', self.browse_button.cget('fg')])
 
         # 工作区路径来源颜色
         self.workspace_source_color = self.workspace_default_fg

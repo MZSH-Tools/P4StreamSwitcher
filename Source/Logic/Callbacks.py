@@ -40,7 +40,7 @@ class AppCallbacks:
         self.ui.stream_combo.bind("<Button-1>", self.OnStreamDropdown)
         self.ui.stream_combo.bind("<<ComboboxSelected>>", self.OnStreamSelected)
         self.ui.apply_button.configure(command=self.OnApply)
-        self.ui.browse_button.configure(command=self.OnBrowse)
+        self.ui.workspace_entry.bind("<Button-1>", self.OnWorkspaceClick)
 
     def OnClientDropdown(self, event=None):
         """客户端下拉框点击事件"""
@@ -249,13 +249,27 @@ class AppCallbacks:
 
         self.ui.SetWorkspaceState(exists)
 
-    def OnBrowse(self):
-        """浏览按钮点击事件"""
-        path = filedialog.askdirectory()
+    def OnWorkspaceClick(self, event=None):
+        """工作区目录点击事件，打开目录选择对话框"""
+        cur_path = self.ui.p4_workspace_var.get()
+        # 查找存在的目录作为初始目录
+        initial_dir = self._FindExistingParent(cur_path)
+        path = filedialog.askdirectory(initialdir=initial_dir)
         if path:
             self.ui.p4_workspace_var.set(path)
-            self.ui.SetWorkspaceState(os.path.isdir(path))
             self.ui.SetWorkspaceSourceManual()
+            self.ui.SetWorkspaceState(True)
+
+    def _FindExistingParent(self, path: str) -> str:
+        """向上查找存在的父目录"""
+        while path:
+            if os.path.isdir(path):
+                return path
+            parent = os.path.dirname(path)
+            if parent == path:
+                break
+            path = parent
+        return os.path.expanduser("~")
 
     def _ResetDefaultVars(self):
         """重置默认变量"""
