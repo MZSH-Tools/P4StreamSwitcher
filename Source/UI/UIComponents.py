@@ -75,6 +75,7 @@ class AppUI:
         self.workspace_entry.grid(row=row_index, column=1, columnspan=2, padx=10, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_entry, 'readonly', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
+        self.workspace_is_default = False  # 是否使用默认路径
 
 
         row_index += 1
@@ -178,6 +179,7 @@ class AppUI:
 
     def SetWorkspaceSource(self, is_cached: bool):
         """设置工作区路径来源颜色（缓存=正常，默认=灰色）"""
+        self.workspace_is_default = not is_cached
         if is_cached:
             self.workspace_entry.configure(fg=self.workspace_default_fg)
         else:
@@ -185,4 +187,5 @@ class AppUI:
 
     def SetWorkspaceSourceManual(self):
         """设置工作区路径来源为手动选择（正常颜色）"""
+        self.workspace_is_default = False
         self.workspace_entry.configure(fg=self.workspace_default_fg)

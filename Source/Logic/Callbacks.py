@@ -101,6 +101,14 @@ class AppCallbacks:
         target_workspace = self.ui.p4_workspace_var.get()
         client_name = self.ui.p4_client_var.get()
 
+        # 检查是否使用默认路径，需要用户确认
+        if self.ui.workspace_is_default:
+            result = messagebox.askyesno("确认默认路径",
+                f"当前使用自动生成的默认路径：\n\n{target_workspace}\n\n是否使用该路径？")
+            if not result:
+                self.ui.LogMessage("用户取消操作。")
+                return
+
         # 检查未提交的修改
         self.ui.LogMessage("正在检查未提交的修改...")
         opened_files = GetOpenedFiles(self.p4, client_name)
