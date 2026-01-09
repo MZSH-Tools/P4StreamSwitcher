@@ -1,5 +1,7 @@
 # P4StreamSwitcher
 
+> 本工具为个人开发使用，仅支持深度为 2 的 P4 Stream 结构（如 `//depot/project/branch`）。如有其他需求请自行修改源码。
+
 Perforce 流工作区一键切换工具，帮助用户快速在不同流分支之间切换，无需手动修改客户端配置。
 
 ## 核心功能
