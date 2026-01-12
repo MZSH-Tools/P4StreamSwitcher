@@ -302,7 +302,7 @@ class AppCallbacks:
 
     def OnOpenP4V(self):
         """打开 P4V 按钮点击事件"""
-        LaunchP4V()
+        LaunchP4V(self.p4.port, self.p4.user, self.ui.p4_client_var.get())
         self.ui.LogMessage("正在启动 P4V...")
 
     def OnOfflineChanged(self):

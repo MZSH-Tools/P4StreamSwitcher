@@ -298,14 +298,22 @@ def RunReconcile(p4: P4, command_target: str, parallel: int = 8) -> dict:
     return result
 
 
-def LaunchP4V():
-    """启动 P4V 客户端"""
+def LaunchP4V(server: str = None, user: str = None, client: str = None):
+    """启动 P4V 客户端，可指定服务器、用户和客户端"""
     try:
+        args = ['p4v']
+        if server:
+            args.extend(['-p', server])
+        if user:
+            args.extend(['-u', user])
+        if client:
+            args.extend(['-c', client])
+
         if platform.system() == 'Windows':
-            subprocess.Popen(['p4v'], shell=True)
+            subprocess.Popen(args, shell=True)
         elif platform.system() == 'Darwin':
-            subprocess.Popen(['open', '-a', 'p4v'])
+            subprocess.Popen(['open', '-a', 'p4v', '--args'] + args[1:])
         else:
-            subprocess.Popen(['p4v'])
+            subprocess.Popen(args)
     except Exception:
         pass
