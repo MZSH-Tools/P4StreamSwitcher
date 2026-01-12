@@ -275,3 +275,37 @@ def RunSync(p4: P4, command_target: str, handler: OutputHandler = None, flush_on
         args.append(f"--parallel=threads={parallel}")
     args.append(command_target)
     p4.run(*args)
+
+
+def RunReconcile(p4: P4, command_target: str, parallel: int = 8) -> dict:
+    """执行 reconcile 命令，返回统计结果"""
+    result = {"edit": 0, "add": 0, "delete": 0}
+    try:
+        args = ["reconcile"]
+        if parallel > 0:
+            args.append(f"--parallel=threads={parallel}")
+        args.append(command_target)
+        output = p4.run(*args)
+        for item in output:
+            if isinstance(item, dict):
+                action = item.get("action", "")
+                if action in result:
+                    result[action] += 1
+    except P4Exception as e:
+        err_str = str(e).lower()
+        if "no file(s)" not in err_str:
+            raise
+    return result
+
+
+def LaunchP4V():
+    """启动 P4V 客户端"""
+    try:
+        if platform.system() == 'Windows':
+            subprocess.Popen(['p4v'], shell=True)
+        elif platform.system() == 'Darwin':
+            subprocess.Popen(['open', '-a', 'p4v'])
+        else:
+            subprocess.Popen(['p4v'])
+    except Exception:
+        pass

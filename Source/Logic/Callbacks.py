@@ -8,7 +8,7 @@ from Source.Data.P4Core import (
     GetProjectStreams, ParseStreamPath, SwitchClientStream, GetAllStreams,
     GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
-    IsP4GUIRunning
+    IsP4GUIRunning, RunReconcile, LaunchP4V
 )
 from Source.Data.WorkspaceCache import WorkspaceCache
 from Source.UI.UIComponents import AppUI
@@ -41,6 +41,8 @@ class AppCallbacks:
         self.ui.stream_combo.bind("<<ComboboxSelected>>", self.OnStreamSelected)
         self.ui.apply_button.configure(command=self.OnApply)
         self.ui.workspace_entry.bind("<Button-1>", self.OnWorkspaceClick)
+        self.ui.p4v_button.configure(command=self.OnOpenP4V)
+        self.ui.offline_checkbox.configure(command=self.OnOfflineChanged)
 
     def OnClientDropdown(self, event=None):
         """客户端下拉框点击事件"""
@@ -143,16 +145,17 @@ class AppCallbacks:
 
         SwitchClientStream(self.p4, client_name, self.select_stream_path, target_workspace)
 
-        # 保存工作区目录到缓存
+        # 保存工作区目录和离线标记到缓存
+        is_offline = self.ui.offline_var.get()
         if self.workspace_cache:
-            self.workspace_cache.Set(self.select_stream_path, target_workspace)
+            self.workspace_cache.Set(self.select_stream_path, target_workspace, is_offline)
 
         self._ResetDefaultVars()
 
         self.ui.DisableUI()
-        threading.Thread(target=self._RunSyncAndClean, daemon=True).start()
+        threading.Thread(target=self._RunSyncAndClean, args=(is_offline,), daemon=True).start()
 
-    def _RunSyncAndClean(self):
+    def _RunSyncAndClean(self, is_offline: bool = False):
         """执行同步和清理操作"""
         p4_thread = None
         try:
@@ -167,66 +170,97 @@ class AppCallbacks:
             # 步骤1: sync -k 更新 have list
             self.ui.UpdateOperationLabel("正在更新文件索引...")
             self.ui.LogMessage("执行 sync -k 更新 have list...")
-            RunSync(p4_thread, command_target, flush_only=True)
-            self.ui.LogMessage("have list 更新完成。")
+            try:
+                RunSync(p4_thread, command_target, flush_only=True)
+                self.ui.LogMessage("have list 更新完成。")
+            except P4Exception as e:
+                err_str = str(e).lower()
+                if "up-to-date" in err_str or "no file(s)" in err_str:
+                    self.ui.LogMessage("have list 已是最新状态。")
+                else:
+                    raise
 
-            # 步骤2: 解析 .p4ignore
-            self.ui.UpdateOperationLabel("正在解析 .p4ignore...")
-            self.ui.LogMessage("读取 .p4ignore 规则...")
-            ignore_parser = P4IgnoreParser(workspace_root)
-            self.ui.LogMessage(f"已加载 {len(ignore_parser.patterns)} 条忽略规则。")
-
-            # 步骤3: 获取 have list
-            self.ui.UpdateOperationLabel("正在获取文件列表...")
-            self.ui.LogMessage("获取 have list...")
-            have_paths = GetHaveList(p4_thread, command_target)
-            self.ui.LogMessage(f"have list 包含 {len(have_paths)} 个文件。")
-
-            # 步骤4: 删除多余文件
-            self.ui.UpdateOperationLabel("正在清理多余文件...")
-            self.ui.LogMessage("检测并删除多余的版本控制文件...")
-            deleted_count = DeleteObsoleteFiles(workspace_root, have_paths, ignore_parser, self.ui.LogMessage)
-            self.ui.LogMessage(f"已删除 {deleted_count} 个多余文件。")
-
-            # 步骤5: diff -se 覆盖内容不同的文件
-            self.ui.UpdateOperationLabel("正在检测修改文件...")
-            self.ui.LogMessage("执行 diff -se 检测内容不同的文件...")
-            different_files = GetDifferentFiles(p4_thread, command_target)
-            self.ui.LogMessage(f"发现 {len(different_files)} 个内容不同的文件。")
-
-            # 步骤6: diff -sd 下载缺失的文件
-            self.ui.UpdateOperationLabel("正在检测缺失文件...")
-            self.ui.LogMessage("执行 diff -sd 检测缺失的文件...")
-            missing_files = GetMissingFiles(p4_thread, command_target)
-            self.ui.LogMessage(f"发现 {len(missing_files)} 个缺失的文件。")
-
-            # 步骤7: 同步问题文件（先覆盖不同，再下载缺失）
-            problem_files = different_files + missing_files
-            if problem_files:
-                self.ui.ShowProgressBar()
-                total_files = len(problem_files)
-
-                def on_file_processed(count, depot_file):
-                    self.ui.UpdateProgress(count, total_files)
-                    self.ui.LogMessage(depot_file)
-
-                handler = SyncOutputHandler(on_file_processed, self.ui.LogMessage)
-
-                self.ui.UpdateOperationLabel(f"正在同步 {total_files} 个文件...")
-                self.ui.LogMessage(f"执行 sync -f --parallel 同步 {total_files} 个文件...")
-                SyncFiles(p4_thread, problem_files, handler, parallel=4)
-                self.ui.LogMessage("文件同步完成。")
+            if is_offline:
+                # 离线目录流程：使用 reconcile
+                self.ui.UpdateOperationLabel("正在执行 reconcile...")
+                self.ui.LogMessage("执行 reconcile 识别本地修改...")
+                result = RunReconcile(p4_thread, command_target)
+                total = result["edit"] + result["add"] + result["delete"]
+                self.ui.LogMessage(f"reconcile 完成：{result['edit']} 个修改，{result['add']} 个新增，{result['delete']} 个删除")
+                if total > 0:
+                    self.ui.LogMessage("所有变更已放入默认 changelist，请在 P4V 中查看。")
+                else:
+                    self.ui.LogMessage("本地与服务器一致，无需处理。")
             else:
-                self.ui.LogMessage("所有文件已是最新状态。")
+                # 普通目录流程：删除多余 + 同步差异
+                # 步骤2: 解析 .p4ignore
+                self.ui.UpdateOperationLabel("正在解析 .p4ignore...")
+                self.ui.LogMessage("读取 .p4ignore 规则...")
+                ignore_parser = P4IgnoreParser(workspace_root)
+                self.ui.LogMessage(f"已加载 {len(ignore_parser.patterns)} 条忽略规则。")
+
+                # 步骤3: 获取 have list
+                self.ui.UpdateOperationLabel("正在获取文件列表...")
+                self.ui.LogMessage("获取 have list...")
+                try:
+                    have_paths = GetHaveList(p4_thread, command_target)
+                    self.ui.LogMessage(f"have list 包含 {len(have_paths)} 个文件。")
+                except P4Exception as e:
+                    err_str = str(e).lower()
+                    if "no file(s)" in err_str:
+                        have_paths = set()
+                        self.ui.LogMessage("have list 为空。")
+                    else:
+                        raise
+
+                # 步骤4: 删除多余文件
+                self.ui.UpdateOperationLabel("正在清理多余文件...")
+                self.ui.LogMessage("检测并删除多余的版本控制文件...")
+                deleted_count = DeleteObsoleteFiles(workspace_root, have_paths, ignore_parser, self.ui.LogMessage)
+                self.ui.LogMessage(f"已删除 {deleted_count} 个多余文件。")
+
+                # 步骤5: diff -se 覆盖内容不同的文件
+                self.ui.UpdateOperationLabel("正在检测修改文件...")
+                self.ui.LogMessage("执行 diff -se 检测内容不同的文件...")
+                different_files = GetDifferentFiles(p4_thread, command_target)
+                self.ui.LogMessage(f"发现 {len(different_files)} 个内容不同的文件。")
+
+                # 步骤6: diff -sd 下载缺失的文件
+                self.ui.UpdateOperationLabel("正在检测缺失文件...")
+                self.ui.LogMessage("执行 diff -sd 检测缺失的文件...")
+                missing_files = GetMissingFiles(p4_thread, command_target)
+                self.ui.LogMessage(f"发现 {len(missing_files)} 个缺失的文件。")
+
+                # 步骤7: 同步问题文件（先覆盖不同，再下载缺失）
+                problem_files = different_files + missing_files
+                if problem_files:
+                    self.ui.ShowProgressBar()
+                    total_files = len(problem_files)
+
+                    def on_file_processed(count, depot_file):
+                        self.ui.UpdateProgress(count, total_files)
+                        self.ui.LogMessage(depot_file)
+
+                    handler = SyncOutputHandler(on_file_processed, self.ui.LogMessage)
+
+                    self.ui.UpdateOperationLabel(f"正在同步 {total_files} 个文件...")
+                    self.ui.LogMessage(f"执行 sync -f --parallel 同步 {total_files} 个文件...")
+                    try:
+                        SyncFiles(p4_thread, problem_files, handler, parallel=8)
+                        self.ui.LogMessage("文件同步完成。")
+                    except P4Exception as e:
+                        err_str = str(e).lower()
+                        if "up-to-date" in err_str:
+                            self.ui.LogMessage("文件已是最新状态。")
+                        else:
+                            self.ui.LogMessage(f"同步部分文件时出错：{e}")
+                else:
+                    self.ui.LogMessage("所有文件已是最新状态。")
 
             self.ui.UpdateOperationLabel("操作已完成。")
 
         except P4Exception as e:
-            err_str = str(e)
-            if "up-to-date" in err_str or "no file(s)" in err_str:
-                self.ui.LogMessage("文件已经是最新状态。")
-            else:
-                self.ui.LogMessage("同步操作中发生错误：" + "\n".join(e.errors))
+            self.ui.LogMessage("同步操作中发生错误：" + "\n".join(e.errors))
         except Exception as e:
             self.ui.LogMessage(f"操作中发生错误：{e}")
         finally:
@@ -241,8 +275,11 @@ class AppCallbacks:
         self.ui.EnableUI()
 
     def _UpdateWorkspaceFromCache(self):
-        """根据缓存或默认值更新工作区目录"""
+        """根据缓存或默认值更新工作区目录和离线状态"""
         cached = self.workspace_cache.Get(self.select_stream_path) if self.workspace_cache else None
+        offline = self.workspace_cache.GetOffline(self.select_stream_path) if self.workspace_cache else False
+
+        self.ui.offline_var.set(offline)
 
         if cached:
             self.ui.p4_workspace_var.set(cached)
@@ -262,6 +299,16 @@ class AppCallbacks:
         if path:
             self.ui.p4_workspace_var.set(path)
             self.ui.SetWorkspaceSourceManual()
+
+    def OnOpenP4V(self):
+        """打开 P4V 按钮点击事件"""
+        LaunchP4V()
+        self.ui.LogMessage("正在启动 P4V...")
+
+    def OnOfflineChanged(self):
+        """离线复选框状态改变事件，保存到缓存"""
+        if self.workspace_cache and self.select_stream_path:
+            self.workspace_cache.SetOffline(self.select_stream_path, self.ui.offline_var.get())
 
     def _FindExistingParent(self, path: str) -> str:
         """向上查找存在的父目录"""

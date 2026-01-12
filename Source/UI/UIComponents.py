@@ -77,12 +77,25 @@ class AppUI:
         self.workspace_default_fg = self.workspace_entry.cget('fg')
         self.workspace_is_default = False  # 是否使用默认路径
 
+        row_index += 1
+        # 离线目录复选框
+        self.offline_var = tk.BooleanVar(value=False)
+        self.offline_checkbox = tk.Checkbutton(self.frame, text="离线目录（使用 reconcile 保留本地修改）", variable=self.offline_var)
+        self.offline_checkbox.grid(row=row_index, column=1, padx=10, pady=5, sticky='w')
+        self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
 
         row_index += 1
-        # 一键应用按钮
-        self.apply_button = tk.Button(self.frame, text="一键切换")
-        self.apply_button.grid(row=row_index, column=0, columnspan=2, pady=10)
+        # 按钮区域
+        button_frame = tk.Frame(self.frame)
+        button_frame.grid(row=row_index, column=0, columnspan=2, pady=10)
+
+        self.apply_button = tk.Button(button_frame, text="一键切换")
+        self.apply_button.pack(side='left', padx=5)
         self.widgets_default_settings.append([self.apply_button, 'normal', self.apply_button.cget('fg')])
+
+        self.p4v_button = tk.Button(button_frame, text="打开 P4V")
+        self.p4v_button.pack(side='left', padx=5)
+        self.widgets_default_settings.append([self.p4v_button, 'normal', self.p4v_button.cget('fg')])
 
         row_index += 1
         # 进度条
