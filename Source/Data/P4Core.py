@@ -1,6 +1,7 @@
 from P4 import P4, P4Exception, OutputHandler
 import socket
 import os
+import stat
 import fnmatch
 import subprocess
 import platform
@@ -218,6 +219,7 @@ def DeleteObsoleteFiles(workspace_root: str, have_paths: set, ignore_parser: P4I
             if ignore_parser.ShouldIgnore(file_path):
                 continue
             try:
+                os.chmod(file_path, stat.S_IWRITE)
                 os.remove(file_path)
                 deleted_count += 1
                 if log_callback:
