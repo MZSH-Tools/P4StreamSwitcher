@@ -4,3 +4,4 @@ build/
 dist/
 nul
 *.log
+*-cwd
