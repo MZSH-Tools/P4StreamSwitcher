@@ -9,7 +9,8 @@ from Source.Data.P4Core import (
     GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
     IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
-    CheckTagConflict, GetLocalClientsWithTag, RenameClient
+    CheckTagConflict, GetLocalClientsWithTag, RenameClient,
+    CreateStreamClient, ClientExists, DeleteClient
 )
 from Source.Data.WorkspaceCache import WorkspaceCache, GlobalConfig
 from Source.UI.UIComponents import AppUI
@@ -187,64 +188,111 @@ class AppCallbacks:
         self.ui.ClearLog()
 
         # 检查工作区标识
-        tag = self.ui.workspace_tag_var.get().strip()
-        if not tag:
-            messagebox.showwarning("缺少配置", "请先设置工作区标识")
+        Tag = self.ui.workspace_tag_var.get().strip()
+        if not Tag:
+            messagebox.showwarning("缺少配置", "请先设置并保存工作区标识")
             return
 
-        target_workspace = self.ui.p4_workspace_var.get()
+        # 检查标识是否已保存
+        if Tag != self.saved_tag:
+            messagebox.showwarning("标识未保存", "请先保存工作区标识")
+            return
+
+        TargetWorkspace = self.ui.p4_workspace_var.get()
+        Project = self.ui.p4_project_var.get()
+        Stream = self.ui.p4_stream_var.get()
+        TargetClientName = f"{Tag}_{Project}_{Stream}"
+        MaxCnt = max(1, self.ui.max_workspace_cnt_var.get())
 
         # 检查是否使用默认路径，需要用户确认
         if self.ui.workspace_is_default:
-            result = messagebox.askyesno("确认默认路径",
-                f"当前使用自动生成的默认路径：\n\n{target_workspace}\n\n是否使用该路径？")
-            if not result:
+            Result = messagebox.askyesno("确认默认路径",
+                f"当前使用自动生成的默认路径：\n\n{TargetWorkspace}\n\n是否使用该路径？")
+            if not Result:
                 self.ui.LogMessage("用户取消操作。")
                 return
-
-        # 检查未提交的修改
-        self.ui.LogMessage("正在检查未提交的修改...")
-        opened_files = GetOpenedFiles(self.p4, self.cur_client)
-        if opened_files:
-            count = len(opened_files)
-            files_preview = "\n".join([f.get('depotFile', '') for f in opened_files[:5] if isinstance(f, dict)])
-            messagebox.showwarning("无法切换", f"检测到 {count} 个未提交的文件，请先提交或撤销修改后再切换。\n\n{files_preview}")
-            self.ui.LogMessage(f"检测到 {count} 个未提交文件，操作已取消。")
-            return
 
         # 检查 P4V 是否运行中
         self.ui.LogMessage("正在检查 Perforce GUI 客户端...")
         if IsP4GUIRunning():
-            messagebox.showwarning("无法切换", "检测到 P4V 正在运行中。\n\n切换工作区时运行 P4V 可能导致未知错误，请先关闭 P4V 后重试。")
+            messagebox.showwarning("无法切换", "检测到 P4V 正在运行中。\n\n请先关闭 P4V 后重试。")
             self.ui.LogMessage("检测到 P4V 运行中，操作已取消。")
             return
 
+        # 检查目标工作区是否存在
+        TargetExists = ClientExists(self.p4, TargetClientName)
+        CurrentClients = GetLocalClientsWithTag(self.p4, Tag)
+        CurrentCnt = len(CurrentClients)
+
+        if TargetExists:
+            # 目标工作区已存在，直接切换
+            self.ui.LogMessage(f"目标工作区 {TargetClientName} 已存在，直接切换...")
+        elif CurrentCnt < MaxCnt:
+            # 未达上限，创建新工作区
+            self.ui.LogMessage(f"创建新工作区 {TargetClientName}...")
+        else:
+            # 已达上限，需要删除最旧工作区
+            OldestClient = self.global_config.GetOldestWorkspace(CurrentClients)
+            if not OldestClient:
+                messagebox.showerror("错误", "无法找到可删除的工作区")
+                return
+
+            self.ui.LogMessage(f"已达最大工作区数量 ({CurrentCnt}/{MaxCnt})，删除最旧工作区 {OldestClient}...")
+
+            # 检查最旧工作区是否有未提交修改
+            OpenedFiles = GetOpenedFiles(self.p4, OldestClient)
+            if OpenedFiles:
+                Cnt = len(OpenedFiles)
+                Preview = "\n".join([F.get('depotFile', '') for F in OpenedFiles[:5] if isinstance(F, dict)])
+                messagebox.showwarning("无法切换",
+                    f"待删除的工作区 {OldestClient} 有 {Cnt} 个未提交文件：\n\n{Preview}\n\n请先提交或撤销修改。")
+                self.ui.LogMessage(f"工作区 {OldestClient} 有未提交文件，操作已取消。")
+                return
+
+            # 删除旧工作区
+            try:
+                DeleteClient(self.p4, OldestClient)
+                self.global_config.RemoveWorkspaceTimestamp(OldestClient)
+                self.ui.LogMessage(f"已删除工作区: {OldestClient}")
+            except Exception as E:
+                messagebox.showerror("删除失败", f"删除工作区失败：{E}")
+                return
+
         # 检查目录是否存在
-        if not os.path.isdir(target_workspace):
-            result = messagebox.askyesno("目录不存在",
-                f"目录 {target_workspace} 不存在。\n\n是否创建该目录并继续切换？")
-            if not result:
+        if not os.path.isdir(TargetWorkspace):
+            Result = messagebox.askyesno("目录不存在",
+                f"目录 {TargetWorkspace} 不存在。\n\n是否创建该目录并继续切换？")
+            if not Result:
                 self.ui.LogMessage("用户取消操作。")
                 return
-            os.makedirs(target_workspace, exist_ok=True)
-            self.ui.LogMessage(f"已创建目录: {target_workspace}")
+            os.makedirs(TargetWorkspace, exist_ok=True)
+            self.ui.LogMessage(f"已创建目录: {TargetWorkspace}")
 
-        self.ui.LogMessage("检查通过，开始切换...")
-        self.ui.LogMessage(f"切换客户端为：{self.cur_client}")
-        self.ui.LogMessage(f"切换流路径：{self.select_stream_path}")
-        self.ui.LogMessage(f"切换工作区路径：{target_workspace}")
+        # 创建或更新工作区配置
+        self.ui.LogMessage(f"切换工作区: {TargetClientName}")
+        self.ui.LogMessage(f"流路径: {self.select_stream_path}")
+        self.ui.LogMessage(f"工作区目录: {TargetWorkspace}")
 
-        SwitchClientStream(self.p4, self.cur_client, self.select_stream_path, target_workspace)
+        if TargetExists:
+            SwitchClientStream(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace)
+        else:
+            CreateStreamClient(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace)
+
+        # 更新当前客户端和时间戳
+        self.cur_client = TargetClientName
+        self.p4.client = TargetClientName
+        self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
 
         # 保存工作区目录和离线标记到缓存
-        is_offline = self.ui.offline_var.get()
+        IsOffline = self.ui.offline_var.get()
         if self.workspace_cache:
-            self.workspace_cache.Set(self.select_stream_path, target_workspace, is_offline)
+            self.workspace_cache.Set(self.select_stream_path, TargetWorkspace, IsOffline)
 
         self._ResetDefaultVars()
+        self._UpdateUsedWorkspace()
 
         self.ui.DisableUI()
-        threading.Thread(target=self._RunSyncAndClean, args=(is_offline,), daemon=True).start()
+        threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
 
     def _RunSyncAndClean(self, is_offline: bool = False):
         """执行同步和清理操作"""

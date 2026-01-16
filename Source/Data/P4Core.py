@@ -124,6 +124,58 @@ def GetLocalClientsWithTag(p4: P4, Tag: str) -> list:
     return Clients
 
 
+def GetLocalClientsWithTagInfo(p4: P4, Tag: str) -> list:
+    """获取本地使用指定标识的客户端详细信息列表（含 Access 时间）"""
+    if not Tag:
+        return []
+    LocalHost = socket.gethostname().lower()
+    Prefix = f"{Tag}_"
+    Clients = []
+    for Client in p4.run_clients():
+        Name = Client.get('client', '')
+        Host = Client.get('Host', '').lower()
+        Owner = Client.get('Owner', '')
+        # 匹配 标识_项目_分支 格式，本地且属于当前用户
+        if Name.startswith(Prefix) and Host == LocalHost and Owner == p4.user:
+            Parts = Name[len(Prefix):].split('_')
+            if len(Parts) >= 2:
+                Clients.append(Client)
+    return Clients
+
+
+def GetOldestLocalClient(p4: P4, Tag: str) -> str | None:
+    """获取本地最旧的工作区名称（基于 Access 时间）"""
+    Clients = GetLocalClientsWithTagInfo(p4, Tag)
+    if not Clients:
+        return None
+    # 按 Access 时间排序，返回最旧的
+    Clients.sort(key=lambda C: int(C.get('Access', '0')))
+    return Clients[0].get('client')
+
+
+def CreateStreamClient(p4: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str):
+    """创建新的流客户端"""
+    p4.client = ClientName
+    Spec = p4.fetch_client()
+    Spec['Host'] = socket.gethostname()
+    Spec['Stream'] = StreamPath
+    Spec['Root'] = WorkspaceRoot
+    p4.save_client(Spec)
+
+
+def ClientExists(p4: P4, ClientName: str) -> bool:
+    """检查客户端是否存在"""
+    for Client in p4.run_clients():
+        if Client.get('client') == ClientName:
+            return True
+    return False
+
+
+def DeleteClient(p4: P4, ClientName: str):
+    """删除客户端"""
+    p4.run('client', '-d', ClientName)
+
+
 def RenameClient(p4: P4, OldName: str, NewName: str):
     """重命名客户端"""
     # 获取旧客户端配置

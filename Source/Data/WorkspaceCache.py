@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from platformdirs import user_cache_dir
 
 
@@ -73,6 +74,34 @@ class GlobalConfig:
         """设置右侧面板可见状态"""
         self.config["right_panel_visible"] = visible
         self._Save()
+
+    def GetWorkspaceTimestamps(self) -> dict:
+        """获取工作区时间戳字典"""
+        return self.config.get("workspace_timestamps", {})
+
+    def UpdateWorkspaceTimestamp(self, ClientName: str):
+        """更新工作区时间戳为当前时间"""
+        Timestamps = self.config.get("workspace_timestamps", {})
+        Timestamps[ClientName] = int(time.time())
+        self.config["workspace_timestamps"] = Timestamps
+        self._Save()
+
+    def RemoveWorkspaceTimestamp(self, ClientName: str):
+        """删除工作区时间戳"""
+        Timestamps = self.config.get("workspace_timestamps", {})
+        if ClientName in Timestamps:
+            del Timestamps[ClientName]
+            self.config["workspace_timestamps"] = Timestamps
+            self._Save()
+
+    def GetOldestWorkspace(self, ClientNames: list) -> str | None:
+        """从给定列表中获取最旧的工作区名称"""
+        if not ClientNames:
+            return None
+        Timestamps = self.config.get("workspace_timestamps", {})
+        # 按时间戳排序，没有时间戳的视为最旧（0）
+        Sorted = sorted(ClientNames, key=lambda N: Timestamps.get(N, 0))
+        return Sorted[0]
 
 
 class WorkspaceCache:
