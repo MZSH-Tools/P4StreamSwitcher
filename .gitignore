@@ -1,7 +1,48 @@
-*.pyc
+# Python 字节码
 __pycache__/
+*.py[cod]
+*$py.class
+
+# C 扩展
+*.so
+
+# 分发/打包
+.Python
 build/
 dist/
-nul
+*.egg-info/
+*.egg
+MANIFEST
+
+# 安装日志
+pip-log.txt
+
+# 测试/覆盖率
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+.hypothesis/
+
+# 虚拟环境
+.env
+.venv
+venv/
+env/
+
+# mypy
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# 日志
 *.log
+
+# 项目特定
+nul
 *-cwd
