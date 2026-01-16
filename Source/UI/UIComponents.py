@@ -8,7 +8,13 @@ class AppUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Perforce流一键切换工具")
-        self.root.geometry("700x500")
+        # 窗口居中
+        Width, Height = 700, 500
+        ScreenWidth = self.root.winfo_screenwidth()
+        ScreenHeight = self.root.winfo_screenheight()
+        X = (ScreenWidth - Width) // 2
+        Y = (ScreenHeight - Height) // 2
+        self.root.geometry(f"{Width}x{Height}+{X}+{Y}")
 
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=1)
