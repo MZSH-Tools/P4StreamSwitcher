@@ -52,11 +52,6 @@ class AppUI:
         self.max_workspace_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.max_workspace_spinbox, 'normal', ''])
 
-        # 可用工作区显示
-        tk.Label(general_frame, text="可用工作区:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
-        self.available_workspace_label = tk.Label(general_frame, textvariable=self.available_workspace_var)
-        self.available_workspace_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
-
         row_idx += 1
 
         # ========== 工作区配置区域 ==========
@@ -95,19 +90,10 @@ class AppUI:
         self.offline_checkbox.grid(row=4, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
 
-        row_idx += 1
-
-        # ========== 按钮区域 ==========
-        button_frame = tk.Frame(self.frame)
-        button_frame.grid(row=row_idx, column=0, columnspan=3, pady=10)
-
-        self.apply_button = tk.Button(button_frame, text="一键切换")
-        self.apply_button.pack(side='left', padx=5)
+        # 切换并打开按钮
+        self.apply_button = tk.Button(workspace_frame, text="切换并打开 P4V")
+        self.apply_button.grid(row=5, column=0, columnspan=2, pady=10)
         self.widgets_default_settings.append([self.apply_button, 'normal', self.apply_button.cget('fg')])
-
-        self.p4v_button = tk.Button(button_frame, text="打开 P4V")
-        self.p4v_button.pack(side='left', padx=5)
-        self.widgets_default_settings.append([self.p4v_button, 'normal', self.p4v_button.cget('fg')])
 
         row_idx += 1
 
@@ -144,6 +130,20 @@ class AppUI:
         self.log_text.configure(yscrollcommand=scrollbar.set)
 
         self.frame.rowconfigure(row_idx, weight=3)
+
+        row_idx += 1
+
+        # ========== 状态栏 ==========
+        self.cur_client_var = tk.StringVar()
+        status_frame = tk.Frame(self.frame)
+        status_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
+        status_frame.columnconfigure(0, weight=1)
+
+        self.cur_client_label = tk.Label(status_frame, textvariable=self.cur_client_var, anchor='w')
+        self.cur_client_label.grid(row=0, column=0, sticky='w')
+
+        self.available_workspace_label = tk.Label(status_frame, textvariable=self.available_workspace_var, anchor='e')
+        self.available_workspace_label.grid(row=0, column=1, sticky='e')
 
     def LogMessage(self, message: str):
         """在日志区添加消息"""
@@ -227,4 +227,4 @@ class AppUI:
 
     def UpdateAvailableWorkspace(self, available: int, max_cnt: int):
         """更新可用工作区显示"""
-        self.available_workspace_var.set(f"{available}/{max_cnt}")
+        self.available_workspace_var.set(f"可用工作区: {available}/{max_cnt}")

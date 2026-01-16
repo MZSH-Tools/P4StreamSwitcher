@@ -43,7 +43,6 @@ class AppCallbacks:
         self.ui.stream_combo.bind("<<ComboboxSelected>>", self.OnStreamSelected)
         self.ui.apply_button.configure(command=self.OnApply)
         self.ui.workspace_entry.bind("<Button-1>", self.OnWorkspaceClick)
-        self.ui.p4v_button.configure(command=self.OnOpenP4V)
         self.ui.offline_checkbox.configure(command=self.OnOfflineChanged)
         # 通用配置事件
         self.ui.workspace_tag_entry.bind("<FocusOut>", self.OnWorkspaceTagChanged)
@@ -296,6 +295,9 @@ class AppCallbacks:
         self.ui.LogMessage("操作已完成。")
         self.ui.HideProgressBar()
         self.ui.EnableUI()
+        # 打开 P4V
+        LaunchP4V(self.p4.port, self.p4.user, self.cur_client)
+        self.ui.LogMessage("正在启动 P4V...")
 
     def _UpdateWorkspaceFromCache(self):
         """根据缓存或默认值更新工作区目录和离线状态"""
@@ -348,11 +350,6 @@ class AppCallbacks:
             self.ui.p4_workspace_var.set(path)
             self.ui.SetWorkspaceSourceManual()
 
-    def OnOpenP4V(self):
-        """打开 P4V 按钮点击事件"""
-        LaunchP4V(self.p4.port, self.p4.user, self.cur_client)
-        self.ui.LogMessage("正在启动 P4V...")
-
     def OnOfflineChanged(self):
         """离线复选框状态改变事件，保存到缓存"""
         if self.workspace_cache and self.select_stream_path:
@@ -395,6 +392,7 @@ class AppCallbacks:
         # 加载全局配置到 UI
         self.ui.workspace_tag_var.set(self.global_config.GetWorkspaceTag())
         self.ui.max_workspace_cnt_var.set(self.global_config.GetMaxWorkspaceCnt())
+        self.ui.cur_client_var.set(f"当前客户端: {client_name}")
 
         # 初始化客户端状态
         client_info = GetClientInfo(self.p4, client_name)
