@@ -8,7 +8,7 @@ from Source.Data.P4Core import (
     GetProjectStreams, ParseStreamPath, SwitchClientStream, GetAllStreams,
     GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
-    IsP4GUIRunning, RunReconcile, LaunchP4V
+    IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients
 )
 from Source.Data.WorkspaceCache import WorkspaceCache, GlobalConfig
 from Source.UI.UIComponents import AppUI
@@ -315,10 +315,17 @@ class AppCallbacks:
 
     def _UpdateWorkspacePreview(self):
         """更新工作区名称预览"""
-        tag = self.ui.workspace_tag_var.get().strip()
-        project = self.ui.p4_project_var.get()
-        stream = self.ui.p4_stream_var.get()
-        self.ui.UpdateWorkspacePreview(tag, project, stream)
+        tag = self.ui.workspace_tag_var.get().strip() or "<标识>"
+        project = self.ui.p4_project_var.get() or "<项目>"
+        stream = self.ui.p4_stream_var.get() or "<分支>"
+        name = f"{tag}_{project}_{stream}"
+        # 检查工作区是否存在
+        try:
+            clients = GetAllClients(self.p4)
+            exists = any(c.get('client') == name for c in clients)
+        except Exception:
+            exists = False
+        self.ui.UpdateWorkspacePreview(name, exists)
 
     def _UpdateAvailableWorkspace(self):
         """更新可用工作区显示"""

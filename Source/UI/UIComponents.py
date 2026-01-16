@@ -46,8 +46,8 @@ class AppUI:
         self.workspace_tag_entry.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_tag_entry, 'normal', self.workspace_tag_entry.cget('fg')])
 
-        # 最大工作区数量
-        tk.Label(general_frame, text="最大工作区数量:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        # 最大工作区
+        tk.Label(general_frame, text="最大工作区:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
         self.max_workspace_spinbox = tk.Spinbox(general_frame, from_=1, to=99, textvariable=self.max_workspace_cnt_var, width=10)
         self.max_workspace_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.max_workspace_spinbox, 'normal', ''])
@@ -76,10 +76,15 @@ class AppUI:
         self.stream_combo.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.stream_combo, 'readonly', ''])
 
+        # 工作区名称
+        tk.Label(workspace_frame, text="工作区名称:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
+        self.workspace_preview_label = tk.Label(workspace_frame, textvariable=self.workspace_preview_var, fg='gray')
+        self.workspace_preview_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+
         # 工作区目录
-        tk.Label(workspace_frame, text="工作区目录:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
+        tk.Label(workspace_frame, text="工作区目录:").grid(row=3, column=0, padx=5, pady=5, sticky='e')
         self.workspace_entry = tk.Entry(workspace_frame, textvariable=self.p4_workspace_var, state='readonly', cursor='hand2')
-        self.workspace_entry.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
+        self.workspace_entry.grid(row=3, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_entry, 'readonly', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
         self.workspace_is_default = False
@@ -87,13 +92,8 @@ class AppUI:
         # 离线目录复选框
         self.offline_var = tk.BooleanVar(value=False)
         self.offline_checkbox = tk.Checkbutton(workspace_frame, text="离线目录（使用 reconcile 保留本地修改）", variable=self.offline_var)
-        self.offline_checkbox.grid(row=3, column=1, padx=5, pady=5, sticky='w')
+        self.offline_checkbox.grid(row=4, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
-
-        # 工作区名称预览
-        tk.Label(workspace_frame, text="工作区名称:").grid(row=4, column=0, padx=5, pady=5, sticky='e')
-        self.workspace_preview_label = tk.Label(workspace_frame, textvariable=self.workspace_preview_var, fg='gray')
-        self.workspace_preview_label.grid(row=4, column=1, padx=5, pady=5, sticky='w')
 
         row_idx += 1
 
@@ -220,12 +220,10 @@ class AppUI:
         self.workspace_is_default = False
         self.workspace_entry.configure(fg=self.workspace_default_fg)
 
-    def UpdateWorkspacePreview(self, tag: str, project: str, stream: str):
+    def UpdateWorkspacePreview(self, name: str, exists: bool):
         """更新工作区名称预览"""
-        if tag and project and stream:
-            self.workspace_preview_var.set(f"{tag}_{project}_{stream}")
-        else:
-            self.workspace_preview_var.set("")
+        self.workspace_preview_var.set(name)
+        self.workspace_preview_label.configure(fg='black' if exists else 'gray')
 
     def UpdateAvailableWorkspace(self, available: int, max_cnt: int):
         """更新可用工作区显示"""
