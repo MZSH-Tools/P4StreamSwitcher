@@ -291,6 +291,7 @@ class AppCallbacks:
         self._ResetDefaultVars()
         self._UpdateUsedWorkspace()
 
+        self.ui.UpdateStatus("正在同步...")
         self.ui.DisableUI()
         threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
 
@@ -412,6 +413,7 @@ class AppCallbacks:
         self.ui.LogMessage("操作已完成。")
         self.ui.HideProgressBar()
         self.ui.EnableUI()
+        self.ui.UpdateStatus("就绪")
         # 打开 P4V
         LaunchP4V(self.p4.port, self.p4.user, self.cur_client)
         self.ui.LogMessage("正在启动 P4V...")

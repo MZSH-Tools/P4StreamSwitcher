@@ -146,15 +146,19 @@ class AppUI:
 
         # ========== 状态栏 ==========
         self.server_user_var = tk.StringVar()
-        status_frame = tk.Frame(self.frame)
-        status_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
-        status_frame.columnconfigure(0, weight=1)
+        self.status_var = tk.StringVar(value="就绪")
+        StatusFrame = tk.Frame(self.frame)
+        StatusFrame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
+        StatusFrame.columnconfigure(1, weight=1)
 
-        self.server_user_label = tk.Label(status_frame, textvariable=self.server_user_var, anchor='w')
-        self.server_user_label.grid(row=0, column=0, sticky='w')
+        self.status_label = tk.Label(StatusFrame, textvariable=self.status_var, anchor='w')
+        self.status_label.grid(row=0, column=0, sticky='w')
 
-        self.used_workspace_label = tk.Label(status_frame, textvariable=self.available_workspace_var, anchor='e')
-        self.used_workspace_label.grid(row=0, column=1, sticky='e')
+        self.server_user_label = tk.Label(StatusFrame, textvariable=self.server_user_var, anchor='center')
+        self.server_user_label.grid(row=0, column=1)
+
+        self.used_workspace_label = tk.Label(StatusFrame, textvariable=self.available_workspace_var, anchor='e')
+        self.used_workspace_label.grid(row=0, column=2, sticky='e')
 
     def LogMessage(self, message: str):
         """在日志区添加消息"""
@@ -254,3 +258,9 @@ class AppUI:
     def EnableTagSave(self, Enable: bool):
         """启用或禁用标识保存按钮"""
         self.tag_save_button.configure(state='normal' if Enable else 'disabled')
+
+    def UpdateStatus(self, Text: str):
+        """更新状态栏状态文本"""
+        def Update():
+            self.status_var.set(Text)
+        self.root.after(0, Update)
