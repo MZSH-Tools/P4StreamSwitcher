@@ -101,8 +101,8 @@ class AppCallbacks:
             if Conflicts:
                 messagebox.showwarning("标识冲突", f"该标识已被其他主机使用：\n{', '.join(Conflicts[:5])}")
                 return
-        except Exception as e:
-            messagebox.showerror("检查失败", f"检查标识时发生错误：{e}")
+        except Exception as E:
+            messagebox.showerror("检查失败", f"检查标识时发生错误：{E}")
             return
 
         # 重命名旧标识的本地工作区
@@ -334,7 +334,7 @@ class AppCallbacks:
             self.ui.UpdateOperationLabel("正在更新文件索引...")
             self.ui.LogMessage("执行 sync -k 更新 have list...")
             try:
-                RunSync(P4Thread, CmdTarget, flush_only=True)
+                RunSync(P4Thread, CmdTarget, FlushOnly=True)
                 self.ui.LogMessage("have list 更新完成。")
             except P4Exception as E:
                 ErrStr = str(E).lower()
@@ -409,7 +409,7 @@ class AppCallbacks:
                     self.ui.UpdateOperationLabel(f"正在同步 {TotalFiles} 个文件...")
                     self.ui.LogMessage(f"执行 sync -f --parallel 同步 {TotalFiles} 个文件...")
                     try:
-                        SyncFiles(P4Thread, ProblemFiles, Handler, parallel=8)
+                        SyncFiles(P4Thread, ProblemFiles, Handler, Parallel=8)
                         self.ui.LogMessage("文件同步完成。")
                     except P4Exception as E:
                         ErrStr = str(E).lower()
