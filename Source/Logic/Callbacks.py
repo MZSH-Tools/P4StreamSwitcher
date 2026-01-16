@@ -10,7 +10,7 @@ from Source.Data.P4Core import (
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
     IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
     CheckTagConflict, GetLocalClientsWithTag, RenameClient,
-    CreateStreamClient, ClientExists, DeleteClient
+    CreateStreamClient, ClientExists, DeleteClient, CreateP4ConfigFile
 )
 from Source.Data.WorkspaceCache import WorkspaceCache, GlobalConfig
 from Source.UI.UIComponents import AppUI
@@ -52,6 +52,8 @@ class AppCallbacks:
         self.ui.tag_save_button.configure(command=self.OnTagSave)
         self.ui.max_workspace_spinbox.bind("<FocusOut>", self.OnMaxWorkspaceCntChanged)
         self.ui.max_workspace_cnt_var.trace_add("write", self._OnMaxCntVarChanged)
+        self.ui.create_p4config_checkbox.configure(command=self.OnCreateP4ConfigChanged)
+        self.ui.auto_rmdir_checkbox.configure(command=self.OnAutoRmdirChanged)
 
     def _OnTagVarChanged(self, *args):
         """工作区标识变量改变时验证标识并更新状态"""
@@ -147,6 +149,14 @@ class AppCallbacks:
             self._UpdateUsedWorkspace()
         except Exception:
             pass
+
+    def OnCreateP4ConfigChanged(self):
+        """创建 P4CONFIG 文件选项改变"""
+        self.global_config.SetCreateP4Config(self.ui.create_p4config_var.get())
+
+    def OnAutoRmdirChanged(self):
+        """自动删除空文件夹选项改变"""
+        self.global_config.SetAutoRmdir(self.ui.auto_rmdir_var.get())
 
     def OnProjectDropdown(self, event=None):
         """项目下拉框点击事件"""
@@ -299,7 +309,15 @@ class AppCallbacks:
         self.ui.LogMessage(f"流路径: {self.select_stream_path}")
         self.ui.LogMessage(f"工作区目录: {TargetWorkspace}")
 
-        CreateStreamClient(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace)
+        AutoRmdir = self.global_config.GetAutoRmdir()
+        CreateStreamClient(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace, AutoRmdir)
+        if AutoRmdir:
+            self.ui.LogMessage("已启用自动删除空文件夹选项。")
+
+        # 创建 P4CONFIG 文件
+        if self.global_config.GetCreateP4Config():
+            CreateP4ConfigFile(TargetWorkspace, TargetClientName, self.p4.port, self.p4.user)
+            self.ui.LogMessage(f"已创建 .p4config 文件: {TargetWorkspace}")
 
         # 更新当前客户端和时间戳
         self.cur_client = TargetClientName
@@ -556,6 +574,8 @@ class AppCallbacks:
         self.saved_tag = self.global_config.GetWorkspaceTag()
         self.ui.workspace_tag_var.set(self.saved_tag)
         self.ui.max_workspace_cnt_var.set(self.global_config.GetMaxWorkspaceCnt())
+        self.ui.create_p4config_var.set(self.global_config.GetCreateP4Config())
+        self.ui.auto_rmdir_var.set(self.global_config.GetAutoRmdir())
         self.ui.server_user_var.set(f"{self.p4.port} | {self.p4.user}")
 
         # 初始化客户端状态

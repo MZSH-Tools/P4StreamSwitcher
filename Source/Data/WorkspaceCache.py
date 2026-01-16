@@ -19,7 +19,9 @@ class GlobalConfig:
             "workspace_tag": "",
             "max_workspace_cnt": 5,
             "left_panel_visible": True,
-            "right_panel_visible": True
+            "right_panel_visible": True,
+            "create_p4config": False,
+            "auto_rmdir": False
         }
         self._Load()
 
@@ -73,6 +75,24 @@ class GlobalConfig:
     def SetRightPanelVisible(self, Visible: bool):
         """设置右侧面板可见状态"""
         self.config["right_panel_visible"] = Visible
+        self._Save()
+
+    def GetCreateP4Config(self) -> bool:
+        """获取是否创建 p4config 文件"""
+        return self.config.get("create_p4config", False)
+
+    def SetCreateP4Config(self, Enabled: bool):
+        """设置是否创建 p4config 文件"""
+        self.config["create_p4config"] = Enabled
+        self._Save()
+
+    def GetAutoRmdir(self) -> bool:
+        """获取是否自动删除空文件夹"""
+        return self.config.get("auto_rmdir", False)
+
+    def SetAutoRmdir(self, Enabled: bool):
+        """设置是否自动删除空文件夹"""
+        self.config["auto_rmdir"] = Enabled
         self._Save()
 
     def GetWorkspaceTimestamps(self) -> dict:

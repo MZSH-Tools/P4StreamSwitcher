@@ -63,47 +63,59 @@ class AppUI:
         self.max_workspace_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.max_workspace_spinbox, 'normal', ''])
 
+        # 工作区选项复选框
+        OptionsFrame = tk.Frame(GeneralFrame)
+        OptionsFrame.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky='w')
+
+        self.create_p4config_var = tk.BooleanVar(value=False)
+        self.create_p4config_checkbox = tk.Checkbutton(OptionsFrame, text="创建 P4CONFIG 文件", variable=self.create_p4config_var)
+        self.create_p4config_checkbox.grid(row=0, column=0, padx=(0, 20))
+        self.widgets_default_settings.append([self.create_p4config_checkbox, 'normal', ''])
+
+        self.auto_rmdir_var = tk.BooleanVar(value=False)
+        self.auto_rmdir_checkbox = tk.Checkbutton(OptionsFrame, text="自动删除空文件夹", variable=self.auto_rmdir_var)
+        self.auto_rmdir_checkbox.grid(row=0, column=1)
+        self.widgets_default_settings.append([self.auto_rmdir_checkbox, 'normal', ''])
+
         RowIdx += 1
 
         # ========== 工作区配置区域 ==========
         WorkspaceFrame = tk.LabelFrame(self.frame, text="工作区配置", padx=10, pady=5)
         WorkspaceFrame.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
         WorkspaceFrame.columnconfigure(1, weight=1)
+        WorkspaceFrame.columnconfigure(3, weight=1)
 
-        # 选择流项目
-        tk.Label(WorkspaceFrame, text="选择流项目:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        # 第一行：项目 + 分支
+        tk.Label(WorkspaceFrame, text="项目:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
         self.project_combo = ttk.Combobox(WorkspaceFrame, textvariable=self.p4_project_var, state='readonly')
         self.project_combo.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.project_combo, 'readonly', ''])
 
-        # 选择流分支
-        tk.Label(WorkspaceFrame, text="选择流分支:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        tk.Label(WorkspaceFrame, text="分支:").grid(row=0, column=2, padx=5, pady=5, sticky='e')
         self.stream_combo = ttk.Combobox(WorkspaceFrame, textvariable=self.p4_stream_var, state='readonly')
-        self.stream_combo.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
+        self.stream_combo.grid(row=0, column=3, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.stream_combo, 'readonly', ''])
 
-        # 工作区名称
-        tk.Label(WorkspaceFrame, text="工作区名称:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
+        # 第二行：名称 + 目录
+        tk.Label(WorkspaceFrame, text="名称:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
         self.workspace_preview_label = tk.Label(WorkspaceFrame, textvariable=self.workspace_preview_var, fg='gray')
-        self.workspace_preview_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+        self.workspace_preview_label.grid(row=1, column=1, padx=5, pady=5, sticky='w')
 
-        # 工作区目录
-        tk.Label(WorkspaceFrame, text="工作区目录:").grid(row=3, column=0, padx=5, pady=5, sticky='e')
+        tk.Label(WorkspaceFrame, text="目录:").grid(row=1, column=2, padx=5, pady=5, sticky='e')
         self.workspace_entry = tk.Entry(WorkspaceFrame, textvariable=self.p4_workspace_var, state='readonly', cursor='hand2')
-        self.workspace_entry.grid(row=3, column=1, padx=5, pady=5, sticky='ew')
+        self.workspace_entry.grid(row=1, column=3, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_entry, 'readonly', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
         self.workspace_is_default = False
 
-        # 离线目录复选框
+        # 第三行：离线目录复选框 + 切换按钮
         self.offline_var = tk.BooleanVar(value=False)
         self.offline_checkbox = tk.Checkbutton(WorkspaceFrame, text="离线目录（创建时以本地文件为准）", variable=self.offline_var)
-        self.offline_checkbox.grid(row=4, column=1, padx=5, pady=5, sticky='w')
+        self.offline_checkbox.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
 
-        # 切换并打开按钮
         self.apply_button = tk.Button(WorkspaceFrame, text="切换并打开 P4V")
-        self.apply_button.grid(row=5, column=0, columnspan=2, pady=10)
+        self.apply_button.grid(row=2, column=2, columnspan=2, padx=5, pady=5)
         self.widgets_default_settings.append([self.apply_button, 'normal', self.apply_button.cget('fg')])
 
         RowIdx += 1

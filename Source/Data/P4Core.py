@@ -153,13 +153,32 @@ def GetOldestLocalClient(P4Conn: P4, Tag: str) -> str | None:
     return Clients[0].get('client')
 
 
-def CreateStreamClient(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str):
+def CreateP4ConfigFile(WorkspaceRoot: str, ClientName: str, Server: str, User: str):
+    """在工作区根目录创建 .p4config 文件"""
+    ConfigPath = os.path.join(WorkspaceRoot, ".p4config")
+    with open(ConfigPath, 'w', encoding='utf-8') as F:
+        F.write(f"P4CLIENT={ClientName}\n")
+        F.write(f"P4PORT={Server}\n")
+        F.write(f"P4USER={User}\n")
+
+
+def CreateStreamClient(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str, AutoRmdir: bool = False):
     """创建新的流客户端"""
     P4Conn.client = ClientName
     Spec = P4Conn.fetch_client()
     Spec['Host'] = socket.gethostname()
     Spec['Stream'] = StreamPath
     Spec['Root'] = WorkspaceRoot
+
+    # 处理 rmdir 选项
+    if AutoRmdir:
+        Options = Spec.get('Options', '')
+        if 'normdir' in Options:
+            Options = Options.replace('normdir', 'rmdir')
+        elif 'rmdir' not in Options:
+            Options = Options + ' rmdir' if Options else 'rmdir'
+        Spec['Options'] = Options
+
     P4Conn.save_client(Spec)
 
 
