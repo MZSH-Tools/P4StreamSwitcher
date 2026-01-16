@@ -4,9 +4,8 @@ from tkinter import messagebox, filedialog
 from P4 import P4, P4Exception
 
 from Source.Data.P4Core import (
-    GetLocalStreamClients, GetClientInfo, GetMainlineProjects,
-    GetProjectStreams, ParseStreamPath, SwitchClientStream, GetAllStreams,
-    GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
+    GetClientInfo, GetMainlineProjects, GetProjectStreams, ParseStreamPath,
+    GetAllStreams, GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
     IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
     CheckTagConflict, GetLocalClientsWithTag, RenameClient,

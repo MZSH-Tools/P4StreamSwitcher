@@ -18,8 +18,6 @@ class GlobalConfig:
         self.config = {
             "workspace_tag": "",
             "max_workspace_cnt": 5,
-            "left_panel_visible": True,
-            "right_panel_visible": True,
             "create_p4config": True,
             "auto_rmdir": True
         }
@@ -57,24 +55,6 @@ class GlobalConfig:
     def SetMaxWorkspaceCnt(self, Cnt: int):
         """设置最大工作区数量（最小为1）"""
         self.config["max_workspace_cnt"] = max(1, Cnt)
-        self._Save()
-
-    def GetLeftPanelVisible(self) -> bool:
-        """获取左侧面板可见状态"""
-        return self.config.get("left_panel_visible", True)
-
-    def SetLeftPanelVisible(self, Visible: bool):
-        """设置左侧面板可见状态"""
-        self.config["left_panel_visible"] = Visible
-        self._Save()
-
-    def GetRightPanelVisible(self) -> bool:
-        """获取右侧面板可见状态"""
-        return self.config.get("right_panel_visible", True)
-
-    def SetRightPanelVisible(self, Visible: bool):
-        """设置右侧面板可见状态"""
-        self.config["right_panel_visible"] = Visible
         self._Save()
 
     def GetCreateP4Config(self) -> bool:

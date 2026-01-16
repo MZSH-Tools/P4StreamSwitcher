@@ -78,15 +78,6 @@ def GetClientInfo(P4Conn: P4, ClientName: str):
     return None
 
 
-def SwitchClientStream(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str):
-    """切换客户端的流和工作区"""
-    P4Conn.client = ClientName
-    ClientSpec = P4Conn.fetch_client()
-    ClientSpec["Stream"] = StreamPath
-    ClientSpec["Root"] = WorkspaceRoot
-    P4Conn.save_client(ClientSpec)
-
-
 def CheckTagConflict(P4Conn: P4, Tag: str) -> list:
     """检查标识是否被其他主机使用，返回冲突的客户端列表"""
     if not Tag:
@@ -173,9 +164,10 @@ def CreateStreamClient(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRo
     # 处理 rmdir 选项
     if AutoRmdir:
         Options = Spec.get('Options', '')
-        if 'normdir' in Options:
-            Options = Options.replace('normdir', 'rmdir')
-        elif 'rmdir' not in Options:
+        # 移除 normdir，确保 rmdir 存在
+        Options = Options.replace('normdir', '').strip()
+        Options = ' '.join(Options.split())  # 清理多余空格
+        if 'rmdir' not in Options:
             Options = Options + ' rmdir' if Options else 'rmdir'
         Spec['Options'] = Options
 
@@ -281,6 +273,7 @@ class P4IgnoreParser:
         "DerivedDataCache/",
         "Binaries/",
         ".vs/",
+        ".vscode/",
         ".idea/",
         ".git/",
         "*.log",
