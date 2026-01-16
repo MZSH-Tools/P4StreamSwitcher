@@ -42,9 +42,20 @@ class AppUI:
 
         # 工作区标识
         tk.Label(general_frame, text="工作区标识:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
-        self.workspace_tag_entry = tk.Entry(general_frame, textvariable=self.workspace_tag_var)
-        self.workspace_tag_entry.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+        TagFrame = tk.Frame(general_frame)
+        TagFrame.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+        TagFrame.columnconfigure(0, weight=1)
+
+        self.workspace_tag_entry = tk.Entry(TagFrame, textvariable=self.workspace_tag_var)
+        self.workspace_tag_entry.grid(row=0, column=0, sticky='ew')
         self.widgets_default_settings.append([self.workspace_tag_entry, 'normal', self.workspace_tag_entry.cget('fg')])
+
+        self.tag_status_label = tk.Label(TagFrame, text="", width=2)
+        self.tag_status_label.grid(row=0, column=1, padx=2)
+
+        self.tag_save_button = tk.Button(TagFrame, text="保存", state='disabled')
+        self.tag_save_button.grid(row=0, column=2, padx=2)
+        self.widgets_default_settings.append([self.tag_save_button, 'disabled', ''])
 
         # 最大工作区
         tk.Label(general_frame, text="最大工作区:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
@@ -228,3 +239,18 @@ class AppUI:
     def UpdateUsedWorkspace(self, used: int, max_cnt: int):
         """更新使用工作区显示"""
         self.available_workspace_var.set(f"使用工作区: {used}/{max_cnt}")
+
+    def SetTagStatus(self, Valid: bool, Empty: bool = False):
+        """设置标识验证状态"""
+        if Empty:
+            self.tag_status_label.configure(text="", fg='black')
+            self.tag_save_button.configure(state='disabled')
+        elif Valid:
+            self.tag_status_label.configure(text="O", fg='green')
+        else:
+            self.tag_status_label.configure(text="X", fg='red')
+            self.tag_save_button.configure(state='disabled')
+
+    def EnableTagSave(self, Enable: bool):
+        """启用或禁用标识保存按钮"""
+        self.tag_save_button.configure(state='normal' if Enable else 'disabled')

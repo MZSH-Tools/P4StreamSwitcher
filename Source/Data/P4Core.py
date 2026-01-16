@@ -87,6 +87,61 @@ def SwitchClientStream(p4: P4, client_name: str, stream_path: str, workspace_roo
     p4.save_client(client_spec)
 
 
+def CheckTagConflict(p4: P4, Tag: str) -> list:
+    """检查标识是否被其他主机使用，返回冲突的客户端列表"""
+    if not Tag:
+        return []
+    LocalHost = socket.gethostname().lower()
+    Prefix = f"{Tag}_"
+    Conflicts = []
+    for Client in p4.run_clients():
+        Name = Client.get('client', '')
+        Host = Client.get('Host', '').lower()
+        # 匹配 标识_项目_分支 格式
+        if Name.startswith(Prefix):
+            Parts = Name[len(Prefix):].split('_')
+            if len(Parts) >= 2 and Host != LocalHost:
+                Conflicts.append(Name)
+    return Conflicts
+
+
+def GetLocalClientsWithTag(p4: P4, Tag: str) -> list:
+    """获取本地使用指定标识的客户端列表"""
+    if not Tag:
+        return []
+    LocalHost = socket.gethostname().lower()
+    Prefix = f"{Tag}_"
+    Clients = []
+    for Client in p4.run_clients():
+        Name = Client.get('client', '')
+        Host = Client.get('Host', '').lower()
+        Owner = Client.get('Owner', '')
+        # 匹配 标识_项目_分支 格式，本地且属于当前用户
+        if Name.startswith(Prefix) and Host == LocalHost and Owner == p4.user:
+            Parts = Name[len(Prefix):].split('_')
+            if len(Parts) >= 2:
+                Clients.append(Name)
+    return Clients
+
+
+def RenameClient(p4: P4, OldName: str, NewName: str):
+    """重命名客户端"""
+    # 获取旧客户端配置
+    p4.client = OldName
+    OldSpec = p4.fetch_client()
+
+    # 创建新客户端
+    p4.client = NewName
+    NewSpec = p4.fetch_client()
+    for Key in ['Root', 'Stream', 'Options', 'SubmitOptions', 'LineEnd']:
+        if Key in OldSpec:
+            NewSpec[Key] = OldSpec[Key]
+    p4.save_client(NewSpec)
+
+    # 删除旧客户端
+    p4.run('client', '-d', OldName)
+
+
 def GetOpenedFiles(p4: P4, client_name: str) -> list:
     """获取指定客户端未提交的文件列表"""
     try:

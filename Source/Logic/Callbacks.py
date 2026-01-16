@@ -8,7 +8,8 @@ from Source.Data.P4Core import (
     GetProjectStreams, ParseStreamPath, SwitchClientStream, GetAllStreams,
     GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
-    IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients
+    IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
+    CheckTagConflict, GetLocalClientsWithTag, RenameClient
 )
 from Source.Data.WorkspaceCache import WorkspaceCache, GlobalConfig
 from Source.UI.UIComponents import AppUI
@@ -32,6 +33,7 @@ class AppCallbacks:
         self.default_stream_path = ""
         self.workspace_cache = None
         self.cur_client = ""
+        self.saved_tag = ""  # 已保存的标识
 
         self._BindEvents()
 
@@ -45,25 +47,91 @@ class AppCallbacks:
         self.ui.workspace_entry.bind("<Button-1>", self.OnWorkspaceClick)
         self.ui.offline_checkbox.configure(command=self.OnOfflineChanged)
         # 通用配置事件
-        self.ui.workspace_tag_entry.bind("<FocusOut>", self.OnWorkspaceTagChanged)
         self.ui.workspace_tag_var.trace_add("write", self._OnTagVarChanged)
+        self.ui.tag_save_button.configure(command=self.OnTagSave)
         self.ui.max_workspace_spinbox.bind("<FocusOut>", self.OnMaxWorkspaceCntChanged)
         self.ui.max_workspace_cnt_var.trace_add("write", self._OnMaxCntVarChanged)
 
     def _OnTagVarChanged(self, *args):
-        """工作区标识变量改变时更新预览和使用工作区"""
+        """工作区标识变量改变时验证标识并更新状态"""
+        Tag = self.ui.workspace_tag_var.get().strip()
         self._UpdateWorkspacePreview()
         self._UpdateUsedWorkspace()
+
+        # 空标识
+        if not Tag:
+            self.ui.SetTagStatus(False, Empty=True)
+            return
+
+        # 检查是否与其他主机冲突
+        try:
+            Conflicts = CheckTagConflict(self.p4, Tag)
+            if Conflicts:
+                self.ui.SetTagStatus(False)
+                return
+        except Exception:
+            pass
+
+        # 标识有效
+        self.ui.SetTagStatus(True)
+
+        # 如果标识与已保存的不同，启用保存按钮
+        if Tag != self.saved_tag:
+            self.ui.EnableTagSave(True)
+        else:
+            self.ui.EnableTagSave(False)
 
     def _OnMaxCntVarChanged(self, *args):
         """最大工作区数量变量改变时更新显示"""
         self._UpdateUsedWorkspace()
 
-    def OnWorkspaceTagChanged(self, event=None):
-        """工作区标识输入框失去焦点，保存到缓存"""
-        tag = self.ui.workspace_tag_var.get().strip()
-        self.global_config.SetWorkspaceTag(tag)
+    def OnTagSave(self):
+        """保存标识并重命名本地旧标识工作区"""
+        NewTag = self.ui.workspace_tag_var.get().strip()
+        OldTag = self.saved_tag
+
+        if not NewTag:
+            messagebox.showwarning("标识无效", "工作区标识不能为空")
+            return
+
+        # 检查冲突
+        try:
+            Conflicts = CheckTagConflict(self.p4, NewTag)
+            if Conflicts:
+                messagebox.showwarning("标识冲突", f"该标识已被其他主机使用：\n{', '.join(Conflicts[:5])}")
+                return
+        except Exception as e:
+            messagebox.showerror("检查失败", f"检查标识时发生错误：{e}")
+            return
+
+        # 重命名旧标识的本地工作区
+        if OldTag:
+            try:
+                OldClients = GetLocalClientsWithTag(self.p4, OldTag)
+                if OldClients:
+                    Result = messagebox.askyesno("重命名工作区",
+                        f"检测到 {len(OldClients)} 个使用旧标识的本地工作区：\n"
+                        f"{', '.join(OldClients[:5])}\n\n是否将它们重命名为新标识？")
+                    if Result:
+                        for OldName in OldClients:
+                            # 替换标识前缀
+                            Suffix = OldName[len(OldTag):]
+                            NewName = f"{NewTag}{Suffix}"
+                            try:
+                                RenameClient(self.p4, OldName, NewName)
+                                self.ui.LogMessage(f"已重命名: {OldName} -> {NewName}")
+                            except Exception as e:
+                                self.ui.LogMessage(f"重命名失败 {OldName}: {e}")
+            except Exception as e:
+                self.ui.LogMessage(f"获取旧工作区列表失败: {e}")
+
+        # 保存配置
+        self.global_config.SetWorkspaceTag(NewTag)
+        self.saved_tag = NewTag
+        self.ui.EnableTagSave(False)
+        self.ui.LogMessage(f"工作区标识已保存: {NewTag}")
         self._UpdateWorkspacePreview()
+        self._UpdateUsedWorkspace()
 
     def OnMaxWorkspaceCntChanged(self, event=None):
         """最大工作区数量改变，保存到缓存"""
@@ -404,18 +472,20 @@ class AppCallbacks:
         self.workspace_cache = WorkspaceCache(client_name)
 
         # 加载全局配置到 UI
-        self.ui.workspace_tag_var.set(self.global_config.GetWorkspaceTag())
+        self.saved_tag = self.global_config.GetWorkspaceTag()
+        self.ui.workspace_tag_var.set(self.saved_tag)
         self.ui.max_workspace_cnt_var.set(self.global_config.GetMaxWorkspaceCnt())
         self.ui.server_user_var.set(f"{self.p4.port} | {self.p4.user}")
 
         # 初始化客户端状态
-        client_info = GetClientInfo(self.p4, client_name)
-        if client_info:
-            self.select_stream_path = client_info.get('Stream', '')
-            parsed = ParseStreamPath(self.select_stream_path)
-            self.ui.p4_project_var.set(parsed[0])
-            self.ui.p4_stream_var.set(parsed[1])
+        ClientInfo = GetClientInfo(self.p4, client_name)
+        if ClientInfo:
+            self.select_stream_path = ClientInfo.get('Stream', '')
+            Parsed = ParseStreamPath(self.select_stream_path)
+            self.ui.p4_project_var.set(Parsed[0])
+            self.ui.p4_stream_var.set(Parsed[1])
 
         self._ResetDefaultVars()
         self._UpdateWorkspacePreview()
         self._UpdateUsedWorkspace()
+        self._OnTagVarChanged()  # 触发标识验证
