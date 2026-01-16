@@ -94,6 +94,14 @@ class GlobalConfig:
             self.config["workspace_timestamps"] = Timestamps
             self._Save()
 
+    def RenameWorkspaceTimestamp(self, OldName: str, NewName: str):
+        """重命名工作区时间戳（迁移旧名称的时间戳到新名称）"""
+        Timestamps = self.config.get("workspace_timestamps", {})
+        if OldName in Timestamps:
+            Timestamps[NewName] = Timestamps.pop(OldName)
+            self.config["workspace_timestamps"] = Timestamps
+            self._Save()
+
     def GetOldestWorkspace(self, ClientNames: list) -> str | None:
         """从给定列表中获取最旧的工作区名称"""
         if not ClientNames:

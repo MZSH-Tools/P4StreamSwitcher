@@ -120,11 +120,13 @@ class AppCallbacks:
                             NewName = f"{NewTag}{Suffix}"
                             try:
                                 RenameClient(self.p4, OldName, NewName)
+                                # 迁移时间戳
+                                self.global_config.RenameWorkspaceTimestamp(OldName, NewName)
                                 self.ui.LogMessage(f"已重命名: {OldName} -> {NewName}")
-                            except Exception as e:
-                                self.ui.LogMessage(f"重命名失败 {OldName}: {e}")
-            except Exception as e:
-                self.ui.LogMessage(f"获取旧工作区列表失败: {e}")
+                            except Exception as E:
+                                self.ui.LogMessage(f"重命名失败 {OldName}: {E}")
+            except Exception as E:
+                self.ui.LogMessage(f"获取旧工作区列表失败: {E}")
 
         # 保存配置
         self.global_config.SetWorkspaceTag(NewTag)
