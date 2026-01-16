@@ -51,8 +51,9 @@ class AppCallbacks:
         self.ui.max_workspace_cnt_var.trace_add("write", self._OnMaxCntVarChanged)
 
     def _OnTagVarChanged(self, *args):
-        """工作区标识变量改变时更新预览"""
+        """工作区标识变量改变时更新预览和使用工作区"""
         self._UpdateWorkspacePreview()
+        self._UpdateUsedWorkspace()
 
     def _OnMaxCntVarChanged(self, *args):
         """最大工作区数量变量改变时更新显示"""
@@ -330,14 +331,28 @@ class AppCallbacks:
         self.ui.UpdateWorkspacePreview(name, exists)
 
     def _UpdateUsedWorkspace(self):
-        """更新使用工作区显示"""
+        """更新使用工作区显示，只统计符合 标识_项目_分支 命名格式的工作区"""
         try:
-            max_cnt = max(1, self.ui.max_workspace_cnt_var.get())
+            MaxCnt = max(1, self.ui.max_workspace_cnt_var.get())
         except Exception:
-            max_cnt = self.global_config.GetMaxWorkspaceCnt()
-        # TODO: 计算已使用的工作区数量
-        used = 0
-        self.ui.UpdateUsedWorkspace(used, max_cnt)
+            MaxCnt = self.global_config.GetMaxWorkspaceCnt()
+
+        Tag = self.ui.workspace_tag_var.get().strip()
+        UsedCnt = 0
+        if Tag:
+            try:
+                Clients = GetAllClients(self.p4)
+                Prefix = f"{Tag}_"
+                for Client in Clients:
+                    Name = Client.get('client', '')
+                    # 匹配 标识_项目_分支 格式（至少两个下划线分隔）
+                    if Name.startswith(Prefix):
+                        Parts = Name[len(Prefix):].split('_')
+                        if len(Parts) >= 2:
+                            UsedCnt += 1
+            except Exception:
+                pass
+        self.ui.UpdateUsedWorkspace(UsedCnt, MaxCnt)
 
     def OnWorkspaceClick(self, event=None):
         """工作区目录点击事件，打开目录选择对话框"""
