@@ -97,7 +97,7 @@ class AppUI:
 
         # 离线目录复选框
         self.offline_var = tk.BooleanVar(value=False)
-        self.offline_checkbox = tk.Checkbutton(WorkspaceFrame, text="离线目录（使用 reconcile 保留本地修改）", variable=self.offline_var)
+        self.offline_checkbox = tk.Checkbutton(WorkspaceFrame, text="离线目录（创建时以本地文件为准）", variable=self.offline_var)
         self.offline_checkbox.grid(row=4, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
 
