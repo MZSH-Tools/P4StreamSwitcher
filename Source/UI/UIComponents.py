@@ -8,17 +8,14 @@ class AppUI:
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Perforce流一键切换工具")
-        self.root.geometry("900x600")
+        self.root.geometry("700x500")
 
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=1)
 
         self.frame = tk.Frame(root)
         self.frame.grid(row=0, column=0, sticky='nsew')
-
-        for i in range(15):
-            self.frame.rowconfigure(i, weight=1)
-        self.frame.columnconfigure(1, weight=1)
+        self.frame.columnconfigure(0, weight=1)
 
         # 变量
         self.workspace_tag_var = tk.StringVar()
@@ -152,7 +149,7 @@ class AppUI:
         Scrollbar.grid(row=0, column=1, sticky='ns')
         self.log_text.configure(yscrollcommand=Scrollbar.set)
 
-        self.frame.rowconfigure(RowIdx, weight=3)
+        self.frame.rowconfigure(RowIdx, weight=1)
 
         RowIdx += 1
 
@@ -162,7 +159,7 @@ class AppUI:
         self._blink_state = False
         self._blink_job = None
         StatusFrame = tk.Frame(self.frame)
-        StatusFrame.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
+        StatusFrame.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=(0, 5), sticky='sew')
         StatusFrame.columnconfigure(2, weight=1)
 
         # 状态指示点
