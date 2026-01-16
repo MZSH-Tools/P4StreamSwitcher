@@ -56,7 +56,7 @@ class AppCallbacks:
 
     def _OnMaxCntVarChanged(self, *args):
         """最大工作区数量变量改变时更新显示"""
-        self._UpdateAvailableWorkspace()
+        self._UpdateUsedWorkspace()
 
     def OnWorkspaceTagChanged(self, event=None):
         """工作区标识输入框失去焦点，保存到缓存"""
@@ -72,7 +72,7 @@ class AppCallbacks:
                 cnt = 1
                 self.ui.max_workspace_cnt_var.set(cnt)
             self.global_config.SetMaxWorkspaceCnt(cnt)
-            self._UpdateAvailableWorkspace()
+            self._UpdateUsedWorkspace()
         except Exception:
             pass
 
@@ -329,16 +329,15 @@ class AppCallbacks:
             exists = False
         self.ui.UpdateWorkspacePreview(name, exists)
 
-    def _UpdateAvailableWorkspace(self):
-        """更新可用工作区显示"""
+    def _UpdateUsedWorkspace(self):
+        """更新使用工作区显示"""
         try:
             max_cnt = max(1, self.ui.max_workspace_cnt_var.get())
         except Exception:
             max_cnt = self.global_config.GetMaxWorkspaceCnt()
         # TODO: 计算已使用的工作区数量
         used = 0
-        available = max_cnt - used
-        self.ui.UpdateAvailableWorkspace(available, max_cnt)
+        self.ui.UpdateUsedWorkspace(used, max_cnt)
 
     def OnWorkspaceClick(self, event=None):
         """工作区目录点击事件，打开目录选择对话框"""
@@ -392,7 +391,7 @@ class AppCallbacks:
         # 加载全局配置到 UI
         self.ui.workspace_tag_var.set(self.global_config.GetWorkspaceTag())
         self.ui.max_workspace_cnt_var.set(self.global_config.GetMaxWorkspaceCnt())
-        self.ui.cur_client_var.set(f"当前客户端: {client_name}")
+        self.ui.server_user_var.set(f"{self.p4.port} | {self.p4.user}")
 
         # 初始化客户端状态
         client_info = GetClientInfo(self.p4, client_name)
@@ -404,4 +403,4 @@ class AppCallbacks:
 
         self._ResetDefaultVars()
         self._UpdateWorkspacePreview()
-        self._UpdateAvailableWorkspace()
+        self._UpdateUsedWorkspace()

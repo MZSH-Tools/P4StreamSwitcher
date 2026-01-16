@@ -134,16 +134,16 @@ class AppUI:
         row_idx += 1
 
         # ========== 状态栏 ==========
-        self.cur_client_var = tk.StringVar()
+        self.server_user_var = tk.StringVar()
         status_frame = tk.Frame(self.frame)
         status_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
         status_frame.columnconfigure(0, weight=1)
 
-        self.cur_client_label = tk.Label(status_frame, textvariable=self.cur_client_var, anchor='w')
-        self.cur_client_label.grid(row=0, column=0, sticky='w')
+        self.server_user_label = tk.Label(status_frame, textvariable=self.server_user_var, anchor='w')
+        self.server_user_label.grid(row=0, column=0, sticky='w')
 
-        self.available_workspace_label = tk.Label(status_frame, textvariable=self.available_workspace_var, anchor='e')
-        self.available_workspace_label.grid(row=0, column=1, sticky='e')
+        self.used_workspace_label = tk.Label(status_frame, textvariable=self.available_workspace_var, anchor='e')
+        self.used_workspace_label.grid(row=0, column=1, sticky='e')
 
     def LogMessage(self, message: str):
         """在日志区添加消息"""
@@ -225,6 +225,6 @@ class AppUI:
         self.workspace_preview_var.set(name)
         self.workspace_preview_label.configure(fg='black' if exists else 'gray')
 
-    def UpdateAvailableWorkspace(self, available: int, max_cnt: int):
-        """更新可用工作区显示"""
-        self.available_workspace_var.set(f"可用工作区: {available}/{max_cnt}")
+    def UpdateUsedWorkspace(self, used: int, max_cnt: int):
+        """更新使用工作区显示"""
+        self.available_workspace_var.set(f"使用工作区: {used}/{max_cnt}")
