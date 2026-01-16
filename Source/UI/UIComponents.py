@@ -147,18 +147,24 @@ class AppUI:
         # ========== 状态栏 ==========
         self.server_user_var = tk.StringVar()
         self.status_var = tk.StringVar(value="就绪")
+        self._blink_state = False
+        self._blink_job = None
         StatusFrame = tk.Frame(self.frame)
         StatusFrame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
-        StatusFrame.columnconfigure(1, weight=1)
+        StatusFrame.columnconfigure(2, weight=1)
+
+        # 状态指示点
+        self.status_dot = tk.Label(StatusFrame, text="●", fg='green', font=('Arial', 10))
+        self.status_dot.grid(row=0, column=0, padx=(0, 3))
 
         self.status_label = tk.Label(StatusFrame, textvariable=self.status_var, anchor='w')
-        self.status_label.grid(row=0, column=0, sticky='w')
+        self.status_label.grid(row=0, column=1, sticky='w')
 
         self.server_user_label = tk.Label(StatusFrame, textvariable=self.server_user_var, anchor='center')
-        self.server_user_label.grid(row=0, column=1)
+        self.server_user_label.grid(row=0, column=2)
 
         self.used_workspace_label = tk.Label(StatusFrame, textvariable=self.available_workspace_var, anchor='e')
-        self.used_workspace_label.grid(row=0, column=2, sticky='e')
+        self.used_workspace_label.grid(row=0, column=3, sticky='e')
 
     def LogMessage(self, message: str):
         """在日志区添加消息"""
@@ -259,8 +265,31 @@ class AppUI:
         """启用或禁用标识保存按钮"""
         self.tag_save_button.configure(state='normal' if Enable else 'disabled')
 
-    def UpdateStatus(self, Text: str):
-        """更新状态栏状态文本"""
+    def UpdateStatus(self, Text: str, Color: str = None, Blink: bool = False):
+        """更新状态栏状态文本和指示点颜色"""
         def Update():
             self.status_var.set(Text)
+            if Color:
+                self._SetDotColor(Color, Blink)
         self.root.after(0, Update)
+
+    def _SetDotColor(self, Color: str, Blink: bool = False):
+        """设置状态点颜色和闪烁"""
+        # 停止之前的闪烁
+        if self._blink_job:
+            self.root.after_cancel(self._blink_job)
+            self._blink_job = None
+
+        self.status_dot.configure(fg=Color)
+        self._blink_state = True
+
+        if Blink:
+            self._StartBlink(Color)
+
+    def _StartBlink(self, Color: str):
+        """开始闪烁"""
+        def DoBlink():
+            self._blink_state = not self._blink_state
+            self.status_dot.configure(fg=Color if self._blink_state else 'gray')
+            self._blink_job = self.root.after(500, DoBlink)
+        DoBlink()

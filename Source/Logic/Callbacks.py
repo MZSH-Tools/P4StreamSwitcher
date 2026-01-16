@@ -291,7 +291,7 @@ class AppCallbacks:
         self._ResetDefaultVars()
         self._UpdateUsedWorkspace()
 
-        self.ui.UpdateStatus("正在同步...")
+        self.ui.UpdateStatus("正在同步...", "orange", Blink=True)
         self.ui.DisableUI()
         threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
 
@@ -401,22 +401,30 @@ class AppCallbacks:
 
         except P4Exception as e:
             self.ui.LogMessage("同步操作中发生错误：" + "\n".join(e.errors))
+            HasError = True
         except Exception as e:
             self.ui.LogMessage(f"操作中发生错误：{e}")
+            HasError = True
+        else:
+            HasError = False
         finally:
             if p4_thread and p4_thread.connected():
                 p4_thread.disconnect()
-            self._FinishSyncAndClean()
+            self._FinishSyncAndClean(HasError)
 
-    def _FinishSyncAndClean(self):
+    def _FinishSyncAndClean(self, HasError: bool = False):
         """同步清理完成后的清理工作"""
-        self.ui.LogMessage("操作已完成。")
         self.ui.HideProgressBar()
         self.ui.EnableUI()
-        self.ui.UpdateStatus("就绪")
-        # 打开 P4V
-        LaunchP4V(self.p4.port, self.p4.user, self.cur_client)
-        self.ui.LogMessage("正在启动 P4V...")
+        if HasError:
+            self.ui.UpdateStatus("错误", "red")
+            self.ui.LogMessage("操作完成，但有错误发生。")
+        else:
+            self.ui.UpdateStatus("就绪", "green")
+            self.ui.LogMessage("操作已完成。")
+            # 打开 P4V
+            LaunchP4V(self.p4.port, self.p4.user, self.cur_client)
+            self.ui.LogMessage("正在启动 P4V...")
 
     def _UpdateWorkspaceFromCache(self):
         """根据缓存或默认值更新工作区目录和离线状态"""
