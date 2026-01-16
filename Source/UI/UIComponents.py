@@ -57,24 +57,23 @@ class AppUI:
         self.tag_save_button.grid(row=0, column=2, padx=2)
         self.widgets_default_settings.append([self.tag_save_button, 'disabled', ''])
 
-        # 最大工作区
-        tk.Label(GeneralFrame, text="最大工作区:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
-        self.max_workspace_spinbox = tk.Spinbox(GeneralFrame, from_=1, to=99, textvariable=self.max_workspace_cnt_var, width=10)
-        self.max_workspace_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+        # 最大工作区 + 创建 P4CONFIG + 自动删除空文件夹（并排）
+        OptionsFrame = tk.Frame(GeneralFrame)
+        OptionsFrame.grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky='w')
+
+        tk.Label(OptionsFrame, text="最大工作区:").grid(row=0, column=0, padx=(0, 5))
+        self.max_workspace_spinbox = tk.Spinbox(OptionsFrame, from_=1, to=99, textvariable=self.max_workspace_cnt_var, width=5)
+        self.max_workspace_spinbox.grid(row=0, column=1, padx=(0, 20))
         self.widgets_default_settings.append([self.max_workspace_spinbox, 'normal', ''])
 
-        # 工作区选项复选框
-        OptionsFrame = tk.Frame(GeneralFrame)
-        OptionsFrame.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky='w')
-
-        self.create_p4config_var = tk.BooleanVar(value=False)
-        self.create_p4config_checkbox = tk.Checkbutton(OptionsFrame, text="创建 P4CONFIG 文件", variable=self.create_p4config_var)
-        self.create_p4config_checkbox.grid(row=0, column=0, padx=(0, 20))
+        self.create_p4config_var = tk.BooleanVar(value=True)
+        self.create_p4config_checkbox = tk.Checkbutton(OptionsFrame, text="创建 P4CONFIG", variable=self.create_p4config_var)
+        self.create_p4config_checkbox.grid(row=0, column=2, padx=(0, 20))
         self.widgets_default_settings.append([self.create_p4config_checkbox, 'normal', ''])
 
-        self.auto_rmdir_var = tk.BooleanVar(value=False)
+        self.auto_rmdir_var = tk.BooleanVar(value=True)
         self.auto_rmdir_checkbox = tk.Checkbutton(OptionsFrame, text="自动删除空文件夹", variable=self.auto_rmdir_var)
-        self.auto_rmdir_checkbox.grid(row=0, column=1)
+        self.auto_rmdir_checkbox.grid(row=0, column=3)
         self.widgets_default_settings.append([self.auto_rmdir_checkbox, 'normal', ''])
 
         RowIdx += 1
@@ -108,14 +107,15 @@ class AppUI:
         self.workspace_default_fg = self.workspace_entry.cget('fg')
         self.workspace_is_default = False
 
-        # 第三行：离线目录复选框 + 切换按钮
+        # 第三行：离线目录复选框（居中）
         self.offline_var = tk.BooleanVar(value=False)
         self.offline_checkbox = tk.Checkbutton(WorkspaceFrame, text="离线目录（创建时以本地文件为准）", variable=self.offline_var)
-        self.offline_checkbox.grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky='w')
+        self.offline_checkbox.grid(row=2, column=0, columnspan=4, pady=5)
         self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
 
+        # 第四行：切换按钮
         self.apply_button = tk.Button(WorkspaceFrame, text="切换并打开 P4V")
-        self.apply_button.grid(row=2, column=2, columnspan=2, padx=5, pady=5)
+        self.apply_button.grid(row=3, column=0, columnspan=4, pady=10)
         self.widgets_default_settings.append([self.apply_button, 'normal', self.apply_button.cget('fg')])
 
         RowIdx += 1

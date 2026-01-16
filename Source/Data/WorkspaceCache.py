@@ -20,8 +20,8 @@ class GlobalConfig:
             "max_workspace_cnt": 5,
             "left_panel_visible": True,
             "right_panel_visible": True,
-            "create_p4config": False,
-            "auto_rmdir": False
+            "create_p4config": True,
+            "auto_rmdir": True
         }
         self._Load()
 
@@ -79,7 +79,7 @@ class GlobalConfig:
 
     def GetCreateP4Config(self) -> bool:
         """获取是否创建 p4config 文件"""
-        return self.config.get("create_p4config", False)
+        return self.config.get("create_p4config", True)
 
     def SetCreateP4Config(self, Enabled: bool):
         """设置是否创建 p4config 文件"""
@@ -88,7 +88,7 @@ class GlobalConfig:
 
     def GetAutoRmdir(self) -> bool:
         """获取是否自动删除空文件夹"""
-        return self.config.get("auto_rmdir", False)
+        return self.config.get("auto_rmdir", True)
 
     def SetAutoRmdir(self, Enabled: bool):
         """设置是否自动删除空文件夹"""
