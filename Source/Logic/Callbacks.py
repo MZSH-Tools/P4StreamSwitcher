@@ -224,10 +224,34 @@ class AppCallbacks:
         CurrentClients = GetLocalClientsWithTag(self.p4, Tag)
         CurrentCnt = len(CurrentClients)
 
+        # 获取离线标记
+        IsOffline = self.ui.offline_var.get()
+
         if TargetExists:
-            # 目标工作区已存在，直接切换
-            self.ui.LogMessage(f"目标工作区 {TargetClientName} 已存在，直接切换...")
-        elif CurrentCnt < MaxCnt:
+            # 目标工作区已存在，直接打开 P4V（最快）
+            self.ui.LogMessage(f"目标工作区 {TargetClientName} 已存在，直接打开 P4V...")
+
+            # 更新当前客户端和时间戳
+            self.cur_client = TargetClientName
+            self.p4.client = TargetClientName
+            self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
+
+            # 保存工作区目录到缓存
+            if self.workspace_cache:
+                self.workspace_cache.Set(self.select_stream_path, TargetWorkspace, IsOffline)
+
+            self._ResetDefaultVars()
+            self._UpdateUsedWorkspace()
+
+            # 直接打开 P4V
+            LaunchP4V(self.p4.port, self.p4.user, TargetClientName)
+            self.ui.LogMessage("正在启动 P4V...")
+            self.ui.UpdateStatus("就绪", "green")
+            return
+
+        # === 以下是创建新工作区的逻辑 ===
+
+        if CurrentCnt < MaxCnt:
             # 未达上限，创建新工作区
             self.ui.LogMessage(f"创建新工作区 {TargetClientName}...")
         else:
@@ -268,15 +292,12 @@ class AppCallbacks:
             os.makedirs(TargetWorkspace, exist_ok=True)
             self.ui.LogMessage(f"已创建目录: {TargetWorkspace}")
 
-        # 创建或更新工作区配置
-        self.ui.LogMessage(f"切换工作区: {TargetClientName}")
+        # 创建新工作区
+        self.ui.LogMessage(f"创建工作区: {TargetClientName}")
         self.ui.LogMessage(f"流路径: {self.select_stream_path}")
         self.ui.LogMessage(f"工作区目录: {TargetWorkspace}")
 
-        if TargetExists:
-            SwitchClientStream(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace)
-        else:
-            CreateStreamClient(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace)
+        CreateStreamClient(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace)
 
         # 更新当前客户端和时间戳
         self.cur_client = TargetClientName
@@ -284,13 +305,13 @@ class AppCallbacks:
         self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
 
         # 保存工作区目录和离线标记到缓存
-        IsOffline = self.ui.offline_var.get()
         if self.workspace_cache:
             self.workspace_cache.Set(self.select_stream_path, TargetWorkspace, IsOffline)
 
         self._ResetDefaultVars()
         self._UpdateUsedWorkspace()
 
+        # 只有创建新工作区时才执行同步
         self.ui.UpdateStatus("正在同步...", "orange", Blink=True)
         self.ui.DisableUI()
         threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
