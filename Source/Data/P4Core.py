@@ -276,6 +276,7 @@ class P4IgnoreParser:
         ".vscode/",
         ".idea/",
         ".git/",
+        ".p4config",
         "*.log",
     ]
 

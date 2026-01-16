@@ -166,6 +166,7 @@ python Main.py
 - `.vscode/` - VS Code 配置
 - `.idea/` - JetBrains IDE 配置
 - `.git/` - Git 仓库
+- `.p4config` - Perforce 配置文件
 - `*.log` - 日志文件
 
 ### 自定义忽略规则
