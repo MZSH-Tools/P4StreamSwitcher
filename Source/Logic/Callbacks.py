@@ -216,28 +216,11 @@ class AppCallbacks:
         TargetClientName = f"{Tag}_{Project}_{Stream}"
         MaxCnt = max(1, self.ui.max_workspace_cnt_var.get())
 
-        # 检查是否使用默认路径，需要用户确认
-        if self.ui.workspace_is_default:
-            Result = messagebox.askyesno("确认默认路径",
-                f"当前使用自动生成的默认路径：\n\n{TargetWorkspace}\n\n是否使用该路径？")
-            if not Result:
-                self.ui.LogMessage("用户取消操作。")
-                return
-
-        # 检查 P4V 是否运行中
-        self.ui.LogMessage("正在检查 Perforce GUI 客户端...")
-        if IsP4GUIRunning():
-            messagebox.showwarning("无法切换", "检测到 P4V 正在运行中。\n\n请先关闭 P4V 后重试。")
-            self.ui.LogMessage("检测到 P4V 运行中，操作已取消。")
-            return
+        # 获取离线标记
+        IsOffline = self.ui.offline_var.get()
 
         # 检查目标工作区是否存在
         TargetExists = ClientExists(self.p4, TargetClientName)
-        CurrentClients = GetLocalClientsWithTag(self.p4, Tag)
-        CurrentCnt = len(CurrentClients)
-
-        # 获取离线标记
-        IsOffline = self.ui.offline_var.get()
 
         if TargetExists:
             # 目标工作区已存在，直接打开 P4V（最快）
@@ -262,6 +245,24 @@ class AppCallbacks:
             return
 
         # === 以下是创建新工作区的逻辑 ===
+
+        # 检查是否使用默认路径，需要用户确认
+        if self.ui.workspace_is_default:
+            Result = messagebox.askyesno("确认默认路径",
+                f"当前使用自动生成的默认路径：\n\n{TargetWorkspace}\n\n是否使用该路径？")
+            if not Result:
+                self.ui.LogMessage("用户取消操作。")
+                return
+
+        # 检查 P4V 是否运行中（创建工作区需要同步，P4V 可能导致文件锁定）
+        self.ui.LogMessage("正在检查 Perforce GUI 客户端...")
+        if IsP4GUIRunning():
+            messagebox.showwarning("无法创建", "检测到 P4V 正在运行中。\n\n请先关闭 P4V 后重试。")
+            self.ui.LogMessage("检测到 P4V 运行中，操作已取消。")
+            return
+
+        CurrentClients = GetLocalClientsWithTag(self.p4, Tag)
+        CurrentCnt = len(CurrentClients)
 
         if CurrentCnt < MaxCnt:
             # 未达上限，创建新工作区
