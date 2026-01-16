@@ -11,90 +11,90 @@ def IsP4GUIRunning() -> bool:
     """检测 P4V 是否正在运行"""
     try:
         if platform.system() == 'Windows':
-            output = subprocess.check_output(['tasklist'], universal_newlines=True)
-            return 'p4v.exe' in output.lower()
+            Output = subprocess.check_output(['tasklist'], universal_newlines=True)
+            return 'p4v.exe' in Output.lower()
         else:
-            output = subprocess.check_output(['pgrep', '-x', 'p4v'], stderr=subprocess.DEVNULL)
-            return bool(output.strip())
+            Output = subprocess.check_output(['pgrep', '-x', 'p4v'], stderr=subprocess.DEVNULL)
+            return bool(Output.strip())
     except Exception:
         return False
 
 
-def GetLocalStreamClients(p4: P4):
+def GetLocalStreamClients(P4Conn: P4):
     """获取本地主机上当前用户的所有流客户端"""
-    local_hostname = socket.gethostname()
-    clients = p4.run_clients()
-    local_stream_clients = []
-    for client in clients:
-        client_host = client.get('Host', '')
-        client_user = client.get('Owner', '')
-        if client_host.lower() == local_hostname.lower() and client_user == p4.user and 'Stream' in client:
-            local_stream_clients.append(client.get('client', p4.client))
-    return local_stream_clients
+    LocalHostname = socket.gethostname()
+    Clients = P4Conn.run_clients()
+    LocalStreamClients = []
+    for Client in Clients:
+        ClientHost = Client.get('Host', '')
+        ClientUser = Client.get('Owner', '')
+        if ClientHost.lower() == LocalHostname.lower() and ClientUser == P4Conn.user and 'Stream' in Client:
+            LocalStreamClients.append(Client.get('client', P4Conn.client))
+    return LocalStreamClients
 
 
-def GetAllStreams(p4: P4):
+def GetAllStreams(P4Conn: P4):
     """获取所有流"""
-    return p4.run_streams()
+    return P4Conn.run_streams()
 
 
-def GetAllClients(p4: P4):
+def GetAllClients(P4Conn: P4):
     """获取所有客户端"""
-    return p4.run_clients()
+    return P4Conn.run_clients()
 
 
-def GetMainlineProjects(p4: P4):
+def GetMainlineProjects(P4Conn: P4):
     """获取所有主线类型的流项目"""
-    streams = p4.run_streams()
-    projects = []
-    for stream in streams:
-        if stream.get('Type', '') == 'mainline':
-            parsed = ParseStreamPath(stream.get('Stream', ''))
-            projects.append(parsed[0])
-    return projects
+    Streams = P4Conn.run_streams()
+    Projects = []
+    for S in Streams:
+        if S.get('Type', '') == 'mainline':
+            Parsed = ParseStreamPath(S.get('Stream', ''))
+            Projects.append(Parsed[0])
+    return Projects
 
 
-def GetProjectStreams(p4: P4, project_name: str):
+def GetProjectStreams(P4Conn: P4, ProjectName: str):
     """获取指定项目下的所有流分支"""
-    streams = p4.run_streams()
-    values = []
-    for stream in streams:
-        parsed = ParseStreamPath(stream.get('Stream', ''))
-        if parsed[0] == project_name:
-            values.append(parsed[1])
-    return values
+    Streams = P4Conn.run_streams()
+    Values = []
+    for S in Streams:
+        Parsed = ParseStreamPath(S.get('Stream', ''))
+        if Parsed[0] == ProjectName:
+            Values.append(Parsed[1])
+    return Values
 
 
-def ParseStreamPath(stream_path: str):
+def ParseStreamPath(StreamPath: str):
     """解析流路径，返回 [项目名, 分支名]"""
-    return stream_path.split('/')[-2:]
+    return StreamPath.split('/')[-2:]
 
 
-def GetClientInfo(p4: P4, client_name: str):
+def GetClientInfo(P4Conn: P4, ClientName: str):
     """获取客户端信息"""
-    for client in p4.run_clients():
-        if client.get('client', '') == client_name:
-            return client
+    for Client in P4Conn.run_clients():
+        if Client.get('client', '') == ClientName:
+            return Client
     return None
 
 
-def SwitchClientStream(p4: P4, client_name: str, stream_path: str, workspace_root: str):
+def SwitchClientStream(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str):
     """切换客户端的流和工作区"""
-    p4.client = client_name
-    client_spec = p4.fetch_client()
-    client_spec["Stream"] = stream_path
-    client_spec["Root"] = workspace_root
-    p4.save_client(client_spec)
+    P4Conn.client = ClientName
+    ClientSpec = P4Conn.fetch_client()
+    ClientSpec["Stream"] = StreamPath
+    ClientSpec["Root"] = WorkspaceRoot
+    P4Conn.save_client(ClientSpec)
 
 
-def CheckTagConflict(p4: P4, Tag: str) -> list:
+def CheckTagConflict(P4Conn: P4, Tag: str) -> list:
     """检查标识是否被其他主机使用，返回冲突的客户端列表"""
     if not Tag:
         return []
     LocalHost = socket.gethostname().lower()
     Prefix = f"{Tag}_"
     Conflicts = []
-    for Client in p4.run_clients():
+    for Client in P4Conn.run_clients():
         Name = Client.get('client', '')
         Host = Client.get('Host', '').lower()
         # 匹配 标识_项目_分支 格式
@@ -105,47 +105,47 @@ def CheckTagConflict(p4: P4, Tag: str) -> list:
     return Conflicts
 
 
-def GetLocalClientsWithTag(p4: P4, Tag: str) -> list:
+def GetLocalClientsWithTag(P4Conn: P4, Tag: str) -> list:
     """获取本地使用指定标识的客户端列表"""
     if not Tag:
         return []
     LocalHost = socket.gethostname().lower()
     Prefix = f"{Tag}_"
     Clients = []
-    for Client in p4.run_clients():
+    for Client in P4Conn.run_clients():
         Name = Client.get('client', '')
         Host = Client.get('Host', '').lower()
         Owner = Client.get('Owner', '')
         # 匹配 标识_项目_分支 格式，本地且属于当前用户
-        if Name.startswith(Prefix) and Host == LocalHost and Owner == p4.user:
+        if Name.startswith(Prefix) and Host == LocalHost and Owner == P4Conn.user:
             Parts = Name[len(Prefix):].split('_')
             if len(Parts) >= 2:
                 Clients.append(Name)
     return Clients
 
 
-def GetLocalClientsWithTagInfo(p4: P4, Tag: str) -> list:
+def GetLocalClientsWithTagInfo(P4Conn: P4, Tag: str) -> list:
     """获取本地使用指定标识的客户端详细信息列表（含 Access 时间）"""
     if not Tag:
         return []
     LocalHost = socket.gethostname().lower()
     Prefix = f"{Tag}_"
     Clients = []
-    for Client in p4.run_clients():
+    for Client in P4Conn.run_clients():
         Name = Client.get('client', '')
         Host = Client.get('Host', '').lower()
         Owner = Client.get('Owner', '')
         # 匹配 标识_项目_分支 格式，本地且属于当前用户
-        if Name.startswith(Prefix) and Host == LocalHost and Owner == p4.user:
+        if Name.startswith(Prefix) and Host == LocalHost and Owner == P4Conn.user:
             Parts = Name[len(Prefix):].split('_')
             if len(Parts) >= 2:
                 Clients.append(Client)
     return Clients
 
 
-def GetOldestLocalClient(p4: P4, Tag: str) -> str | None:
+def GetOldestLocalClient(P4Conn: P4, Tag: str) -> str | None:
     """获取本地最旧的工作区名称（基于 Access 时间）"""
-    Clients = GetLocalClientsWithTagInfo(p4, Tag)
+    Clients = GetLocalClientsWithTagInfo(P4Conn, Tag)
     if not Clients:
         return None
     # 按 Access 时间排序，返回最旧的
@@ -153,103 +153,103 @@ def GetOldestLocalClient(p4: P4, Tag: str) -> str | None:
     return Clients[0].get('client')
 
 
-def CreateStreamClient(p4: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str):
+def CreateStreamClient(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str):
     """创建新的流客户端"""
-    p4.client = ClientName
-    Spec = p4.fetch_client()
+    P4Conn.client = ClientName
+    Spec = P4Conn.fetch_client()
     Spec['Host'] = socket.gethostname()
     Spec['Stream'] = StreamPath
     Spec['Root'] = WorkspaceRoot
-    p4.save_client(Spec)
+    P4Conn.save_client(Spec)
 
 
-def ClientExists(p4: P4, ClientName: str) -> bool:
+def ClientExists(P4Conn: P4, ClientName: str) -> bool:
     """检查客户端是否存在"""
-    for Client in p4.run_clients():
+    for Client in P4Conn.run_clients():
         if Client.get('client') == ClientName:
             return True
     return False
 
 
-def DeleteClient(p4: P4, ClientName: str):
+def DeleteClient(P4Conn: P4, ClientName: str):
     """删除客户端"""
-    p4.run('client', '-d', ClientName)
+    P4Conn.run('client', '-d', ClientName)
 
 
-def RenameClient(p4: P4, OldName: str, NewName: str):
+def RenameClient(P4Conn: P4, OldName: str, NewName: str):
     """重命名客户端"""
     # 获取旧客户端配置
-    p4.client = OldName
-    OldSpec = p4.fetch_client()
+    P4Conn.client = OldName
+    OldSpec = P4Conn.fetch_client()
 
     # 创建新客户端
-    p4.client = NewName
-    NewSpec = p4.fetch_client()
+    P4Conn.client = NewName
+    NewSpec = P4Conn.fetch_client()
     for Key in ['Root', 'Stream', 'Options', 'SubmitOptions', 'LineEnd']:
         if Key in OldSpec:
             NewSpec[Key] = OldSpec[Key]
-    p4.save_client(NewSpec)
+    P4Conn.save_client(NewSpec)
 
     # 删除旧客户端
-    p4.run('client', '-d', OldName)
+    P4Conn.run('client', '-d', OldName)
 
 
-def GetOpenedFiles(p4: P4, client_name: str) -> list:
+def GetOpenedFiles(P4Conn: P4, ClientName: str) -> list:
     """获取指定客户端未提交的文件列表"""
     try:
-        return p4.run("opened", "-C", client_name)
-    except P4Exception as e:
-        err_str = str(e).lower()
-        if "not opened" in err_str or "no file(s)" in err_str:
+        return P4Conn.run("opened", "-C", ClientName)
+    except P4Exception as E:
+        ErrStr = str(E).lower()
+        if "not opened" in ErrStr or "no file(s)" in ErrStr:
             return []
         raise
 
 
-def GetHaveList(p4: P4, command_target: str) -> set:
+def GetHaveList(P4Conn: P4, CmdTarget: str) -> set:
     """获取 have list 中的本地路径集合"""
-    result = p4.run("have", command_target)
-    paths = set()
-    for item in result:
-        if isinstance(item, dict) and item.get('path'):
-            paths.add(os.path.normcase(os.path.normpath(item['path'])))
-    return paths
+    Result = P4Conn.run("have", CmdTarget)
+    Paths = set()
+    for Item in Result:
+        if isinstance(Item, dict) and Item.get('path'):
+            Paths.add(os.path.normcase(os.path.normpath(Item['path'])))
+    return Paths
 
 
-def GetDifferentFiles(p4: P4, command_target: str) -> list:
+def GetDifferentFiles(P4Conn: P4, CmdTarget: str) -> list:
     """获取内容不同的文件列表（depot 有，本地内容不同）"""
     try:
-        result = p4.run("diff", "-se", command_target)
-        return [item.get('depotFile', '') for item in result if isinstance(item, dict)]
-    except P4Exception as e:
-        err_str = str(e).lower()
-        if "no file(s)" in err_str or "not on client" in err_str:
+        Result = P4Conn.run("diff", "-se", CmdTarget)
+        return [Item.get('depotFile', '') for Item in Result if isinstance(Item, dict)]
+    except P4Exception as E:
+        ErrStr = str(E).lower()
+        if "no file(s)" in ErrStr or "not on client" in ErrStr:
             return []
         raise
 
 
-def GetMissingFiles(p4: P4, command_target: str) -> list:
+def GetMissingFiles(P4Conn: P4, CmdTarget: str) -> list:
     """获取缺失的文件列表（depot 有，本地没有）"""
     try:
-        result = p4.run("diff", "-sd", command_target)
-        return [item.get('depotFile', '') for item in result if isinstance(item, dict)]
-    except P4Exception as e:
-        err_str = str(e).lower()
-        if "no file(s)" in err_str or "not on client" in err_str:
+        Result = P4Conn.run("diff", "-sd", CmdTarget)
+        return [Item.get('depotFile', '') for Item in Result if isinstance(Item, dict)]
+    except P4Exception as E:
+        ErrStr = str(E).lower()
+        if "no file(s)" in ErrStr or "not on client" in ErrStr:
             return []
         raise
 
 
-def SyncFiles(p4: P4, files: list, handler: OutputHandler = None, parallel: int = 4):
+def SyncFiles(P4Conn: P4, Files: list, Handler: OutputHandler = None, Parallel: int = 4):
     """同步指定文件列表（使用 sync -f 强制同步）"""
-    if not files:
+    if not Files:
         return
-    if handler:
-        p4.handler = handler
-    args = ["sync", "-f"]
-    if parallel > 0:
-        args.append(f"--parallel=threads={parallel}")
-    args.extend(files)
-    p4.run(*args)
+    if Handler:
+        P4Conn.handler = Handler
+    Args = ["sync", "-f"]
+    if Parallel > 0:
+        Args.append(f"--parallel=threads={Parallel}")
+    Args.extend(Files)
+    P4Conn.run(*Args)
 
 
 class P4IgnoreParser:
@@ -267,74 +267,74 @@ class P4IgnoreParser:
         "*.log",
     ]
 
-    def __init__(self, workspace_root: str):
-        self.workspace_root = workspace_root
+    def __init__(self, WorkspaceRoot: str):
+        self.workspace_root = WorkspaceRoot
         self.patterns = list(self.DEFAULT_PATTERNS)
         self.negations = []
         self._Load()
 
     def _Load(self):
         """读取并解析 .p4ignore 文件"""
-        p4ignore_path = os.path.join(self.workspace_root, ".p4ignore")
-        if not os.path.exists(p4ignore_path):
+        P4IgnorePath = os.path.join(self.workspace_root, ".p4ignore")
+        if not os.path.exists(P4IgnorePath):
             return
-        with open(p4ignore_path, 'r', encoding='utf-8', errors='ignore') as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith('#'):
+        with open(P4IgnorePath, 'r', encoding='utf-8', errors='ignore') as F:
+            for Line in F:
+                Line = Line.strip()
+                if not Line or Line.startswith('#'):
                     continue
-                if line.startswith('!'):
-                    self.negations.append(line[1:])
+                if Line.startswith('!'):
+                    self.negations.append(Line[1:])
                 else:
-                    self.patterns.append(line)
+                    self.patterns.append(Line)
 
-    def ShouldIgnore(self, file_path: str) -> bool:
+    def ShouldIgnore(self, FilePath: str) -> bool:
         """判断文件是否应该被忽略"""
-        rel_path = os.path.relpath(file_path, self.workspace_root).replace('\\', '/')
-        for pattern in self.negations:
-            if self._Match(rel_path, pattern):
+        RelPath = os.path.relpath(FilePath, self.workspace_root).replace('\\', '/')
+        for Pattern in self.negations:
+            if self._Match(RelPath, Pattern):
                 return False
-        for pattern in self.patterns:
-            if self._Match(rel_path, pattern):
+        for Pattern in self.patterns:
+            if self._Match(RelPath, Pattern):
                 return True
         return False
 
-    def _Match(self, path: str, pattern: str) -> bool:
+    def _Match(self, Path: str, Pattern: str) -> bool:
         """匹配路径和模式"""
-        if pattern.endswith('/'):
-            dir_pattern = pattern.rstrip('/')
+        if Pattern.endswith('/'):
+            DirPattern = Pattern.rstrip('/')
             # 检查路径中的所有部分（包括最后一个，以支持目录检查）
-            for part in path.split('/'):
-                if fnmatch.fnmatch(part, dir_pattern):
+            for Part in Path.split('/'):
+                if fnmatch.fnmatch(Part, DirPattern):
                     return True
             return False
-        if '/' in pattern:
-            return fnmatch.fnmatch(path, pattern)
-        return fnmatch.fnmatch(os.path.basename(path), pattern)
+        if '/' in Pattern:
+            return fnmatch.fnmatch(Path, Pattern)
+        return fnmatch.fnmatch(os.path.basename(Path), Pattern)
 
 
-def DeleteObsoleteFiles(workspace_root: str, have_paths: set, ignore_parser: P4IgnoreParser, log_callback=None) -> int:
+def DeleteObsoleteFiles(WorkspaceRoot: str, HavePaths: set, IgnoreParser: P4IgnoreParser, LogCallback=None) -> int:
     """删除多余的版本控制文件（本地有，have list 没有，且不在 .p4ignore 中）"""
-    deleted_count = 0
-    for root, dirs, files in os.walk(workspace_root):
-        dirs[:] = [d for d in dirs if not ignore_parser.ShouldIgnore(os.path.join(root, d))]
-        for file in files:
-            file_path = os.path.join(root, file)
-            normalized_path = os.path.normcase(os.path.normpath(file_path))
-            if normalized_path in have_paths:
+    DeletedCnt = 0
+    for Root, Dirs, Files in os.walk(WorkspaceRoot):
+        Dirs[:] = [D for D in Dirs if not IgnoreParser.ShouldIgnore(os.path.join(Root, D))]
+        for File in Files:
+            FilePath = os.path.join(Root, File)
+            NormalizedPath = os.path.normcase(os.path.normpath(FilePath))
+            if NormalizedPath in HavePaths:
                 continue
-            if ignore_parser.ShouldIgnore(file_path):
+            if IgnoreParser.ShouldIgnore(FilePath):
                 continue
             try:
-                os.chmod(file_path, stat.S_IWRITE)
-                os.remove(file_path)
-                deleted_count += 1
-                if log_callback:
-                    log_callback(f"删除: {file_path}")
-            except Exception as e:
-                if log_callback:
-                    log_callback(f"删除失败: {file_path} - {e}")
-    return deleted_count
+                os.chmod(FilePath, stat.S_IWRITE)
+                os.remove(FilePath)
+                DeletedCnt += 1
+                if LogCallback:
+                    LogCallback(f"删除: {FilePath}")
+            except Exception as E:
+                if LogCallback:
+                    LogCallback(f"删除失败: {FilePath} - {E}")
+    return DeletedCnt
 
 
 class PreviewOutputHandler(OutputHandler):
@@ -343,86 +343,86 @@ class PreviewOutputHandler(OutputHandler):
         super().__init__()
         self.count = 0
 
-    def outputStat(self, stat):
+    def outputStat(self, Stat):
         self.count += 1
         return OutputHandler.HANDLED
 
 
 class SyncOutputHandler(OutputHandler):
     """用于同步操作的 Handler，支持进度回调"""
-    def __init__(self, on_file_processed=None, on_text=None):
+    def __init__(self, OnFileProcessed=None, OnText=None):
         super().__init__()
         self.processed_files = 0
-        self.on_file_processed = on_file_processed
-        self.on_text = on_text
+        self.on_file_processed = OnFileProcessed
+        self.on_text = OnText
 
-    def outputStat(self, stat):
+    def outputStat(self, Stat):
         self.processed_files += 1
         if self.on_file_processed:
-            self.on_file_processed(self.processed_files, stat.get('depotFile', ''))
+            self.on_file_processed(self.processed_files, Stat.get('depotFile', ''))
         return OutputHandler.HANDLED
 
-    def outputText(self, text):
+    def outputText(self, Text):
         if self.on_text:
-            self.on_text(text)
+            self.on_text(Text)
         return OutputHandler.HANDLED
 
-    def outputInfo(self, info):
+    def outputInfo(self, Info):
         if self.on_text:
-            self.on_text(info)
+            self.on_text(Info)
         return OutputHandler.HANDLED
 
 
-def RunSync(p4: P4, command_target: str, handler: OutputHandler = None, flush_only: bool = True, parallel: int = 0):
-    """执行 sync 命令（flush_only=True 时只更新 have list，不下载文件）"""
-    if handler:
-        p4.handler = handler
-    args = ["sync"]
-    if flush_only:
-        args.append("-k")
-    if parallel > 0:
-        args.append(f"--parallel=threads={parallel}")
-    args.append(command_target)
-    p4.run(*args)
+def RunSync(P4Conn: P4, CmdTarget: str, Handler: OutputHandler = None, FlushOnly: bool = True, Parallel: int = 0):
+    """执行 sync 命令（FlushOnly=True 时只更新 have list，不下载文件）"""
+    if Handler:
+        P4Conn.handler = Handler
+    Args = ["sync"]
+    if FlushOnly:
+        Args.append("-k")
+    if Parallel > 0:
+        Args.append(f"--parallel=threads={Parallel}")
+    Args.append(CmdTarget)
+    P4Conn.run(*Args)
 
 
-def RunReconcile(p4: P4, command_target: str, parallel: int = 8) -> dict:
+def RunReconcile(P4Conn: P4, CmdTarget: str, Parallel: int = 8) -> dict:
     """执行 reconcile 命令，返回统计结果"""
-    result = {"edit": 0, "add": 0, "delete": 0}
+    Result = {"edit": 0, "add": 0, "delete": 0}
     try:
-        args = ["reconcile"]
-        if parallel > 0:
-            args.append(f"--parallel=threads={parallel}")
-        args.append(command_target)
-        output = p4.run(*args)
-        for item in output:
-            if isinstance(item, dict):
-                action = item.get("action", "")
-                if action in result:
-                    result[action] += 1
-    except P4Exception as e:
-        err_str = str(e).lower()
-        if "no file(s)" not in err_str:
+        Args = ["reconcile"]
+        if Parallel > 0:
+            Args.append(f"--parallel=threads={Parallel}")
+        Args.append(CmdTarget)
+        Output = P4Conn.run(*Args)
+        for Item in Output:
+            if isinstance(Item, dict):
+                Action = Item.get("action", "")
+                if Action in Result:
+                    Result[Action] += 1
+    except P4Exception as E:
+        ErrStr = str(E).lower()
+        if "no file(s)" not in ErrStr:
             raise
-    return result
+    return Result
 
 
-def LaunchP4V(server: str = None, user: str = None, client: str = None):
+def LaunchP4V(Server: str = None, User: str = None, Client: str = None):
     """启动 P4V 客户端，可指定服务器、用户和客户端"""
     try:
-        args = ['p4v']
-        if server:
-            args.extend(['-p', server])
-        if user:
-            args.extend(['-u', user])
-        if client:
-            args.extend(['-c', client])
+        Args = ['p4v']
+        if Server:
+            Args.extend(['-p', Server])
+        if User:
+            Args.extend(['-u', User])
+        if Client:
+            Args.extend(['-c', Client])
 
         if platform.system() == 'Windows':
-            subprocess.Popen(args, shell=True)
+            subprocess.Popen(Args, shell=True)
         elif platform.system() == 'Darwin':
-            subprocess.Popen(['open', '-a', 'p4v', '--args'] + args[1:])
+            subprocess.Popen(['open', '-a', 'p4v', '--args'] + Args[1:])
         else:
-            subprocess.Popen(args)
+            subprocess.Popen(Args)
     except Exception:
         pass

@@ -27,9 +27,9 @@ class GlobalConfig:
         """加载配置"""
         if os.path.exists(self.config_file):
             try:
-                with open(self.config_file, 'r', encoding='utf-8') as f:
-                    loaded = json.load(f)
-                    self.config.update(loaded)
+                with open(self.config_file, 'r', encoding='utf-8') as F:
+                    Loaded = json.load(F)
+                    self.config.update(Loaded)
             except Exception:
                 pass
 
@@ -43,36 +43,36 @@ class GlobalConfig:
         """获取工作区标识"""
         return self.config.get("workspace_tag", "")
 
-    def SetWorkspaceTag(self, tag: str):
+    def SetWorkspaceTag(self, Tag: str):
         """设置工作区标识"""
-        self.config["workspace_tag"] = tag
+        self.config["workspace_tag"] = Tag
         self._Save()
 
     def GetMaxWorkspaceCnt(self) -> int:
         """获取最大工作区数量"""
         return max(1, self.config.get("max_workspace_cnt", 5))
 
-    def SetMaxWorkspaceCnt(self, cnt: int):
+    def SetMaxWorkspaceCnt(self, Cnt: int):
         """设置最大工作区数量（最小为1）"""
-        self.config["max_workspace_cnt"] = max(1, cnt)
+        self.config["max_workspace_cnt"] = max(1, Cnt)
         self._Save()
 
     def GetLeftPanelVisible(self) -> bool:
         """获取左侧面板可见状态"""
         return self.config.get("left_panel_visible", True)
 
-    def SetLeftPanelVisible(self, visible: bool):
+    def SetLeftPanelVisible(self, Visible: bool):
         """设置左侧面板可见状态"""
-        self.config["left_panel_visible"] = visible
+        self.config["left_panel_visible"] = Visible
         self._Save()
 
     def GetRightPanelVisible(self) -> bool:
         """获取右侧面板可见状态"""
         return self.config.get("right_panel_visible", True)
 
-    def SetRightPanelVisible(self, visible: bool):
+    def SetRightPanelVisible(self, Visible: bool):
         """设置右侧面板可见状态"""
-        self.config["right_panel_visible"] = visible
+        self.config["right_panel_visible"] = Visible
         self._Save()
 
     def GetWorkspaceTimestamps(self) -> dict:
@@ -126,12 +126,12 @@ class WorkspaceCache:
 
     def _MigrateOldFormat(self):
         """将旧格式（字符串）转换为新格式（对象）"""
-        migrated = False
-        for key, value in self.cache.items():
-            if isinstance(value, str):
-                self.cache[key] = {"workspace": value, "offline": False}
-                migrated = True
-        if migrated:
+        Migrated = False
+        for Key, Value in self.cache.items():
+            if isinstance(Value, str):
+                self.cache[Key] = {"workspace": Value, "offline": False}
+                Migrated = True
+        if Migrated:
             self._Save()
 
     def _Save(self):
@@ -140,36 +140,36 @@ class WorkspaceCache:
         with open(self.cache_file, 'w', encoding='utf-8') as f:
             json.dump(self.cache, f, ensure_ascii=False, indent=2)
 
-    def _GetEntry(self, stream_path: str) -> dict | None:
+    def _GetEntry(self, StreamPath: str) -> dict | None:
         """获取缓存条目"""
-        entry = self.cache.get(stream_path)
-        if isinstance(entry, str):
-            return {"workspace": entry, "offline": False}
-        return entry
+        Entry = self.cache.get(StreamPath)
+        if isinstance(Entry, str):
+            return {"workspace": Entry, "offline": False}
+        return Entry
 
-    def Get(self, stream_path: str) -> str | None:
+    def Get(self, StreamPath: str) -> str | None:
         """获取缓存的工作区目录"""
-        entry = self._GetEntry(stream_path)
-        return entry.get("workspace") if entry else None
+        Entry = self._GetEntry(StreamPath)
+        return Entry.get("workspace") if Entry else None
 
-    def GetOffline(self, stream_path: str) -> bool:
+    def GetOffline(self, StreamPath: str) -> bool:
         """获取离线标记"""
-        entry = self._GetEntry(stream_path)
-        return entry.get("offline", False) if entry else False
+        Entry = self._GetEntry(StreamPath)
+        return Entry.get("offline", False) if Entry else False
 
-    def Set(self, stream_path: str, workspace: str, offline: bool = None):
-        """设置工作区目录缓存，offline 为 None 时保留原值"""
-        entry = self._GetEntry(stream_path) or {"workspace": "", "offline": False}
-        entry["workspace"] = workspace
-        if offline is not None:
-            entry["offline"] = offline
-        self.cache[stream_path] = entry
+    def Set(self, StreamPath: str, Workspace: str, Offline: bool = None):
+        """设置工作区目录缓存，Offline 为 None 时保留原值"""
+        Entry = self._GetEntry(StreamPath) or {"workspace": "", "offline": False}
+        Entry["workspace"] = Workspace
+        if Offline is not None:
+            Entry["offline"] = Offline
+        self.cache[StreamPath] = Entry
         self._Save()
 
-    def SetOffline(self, stream_path: str, offline: bool):
+    def SetOffline(self, StreamPath: str, Offline: bool):
         """设置离线标记"""
-        entry = self._GetEntry(stream_path)
-        if entry:
-            entry["offline"] = offline
-            self.cache[stream_path] = entry
+        Entry = self._GetEntry(StreamPath)
+        if Entry:
+            Entry["offline"] = Offline
+            self.cache[StreamPath] = Entry
             self._Save()

@@ -9,44 +9,44 @@ from Source.Data.P4Core import GetLocalStreamClients
 
 
 def main():
-    root = tk.Tk()
-    ui = AppUI(root)
+    Root = tk.Tk()
+    UI = AppUI(Root)
 
     try:
-        p4 = P4()
+        P4Conn = P4()
         try:
-            p4.connect()
+            P4Conn.connect()
         except P4Exception:
             messagebox.showerror("连接服务器失败", "请检查p4 set中P4PORT")
             sys.exit()
 
-        ui.LogMessage("成功连接到 P4 服务器！")
+        UI.LogMessage("成功连接到 P4 服务器！")
 
         # 获取本地流客户端
-        local_stream_clients = GetLocalStreamClients(p4)
-        if p4.client not in local_stream_clients:
-            if len(local_stream_clients) > 0:
-                p4.client = local_stream_clients[0]
+        LocalStreamClients = GetLocalStreamClients(P4Conn)
+        if P4Conn.client not in LocalStreamClients:
+            if len(LocalStreamClients) > 0:
+                P4Conn.client = LocalStreamClients[0]
             else:
-                messagebox.showerror("未检测到流客户端", f"未在本地检测到用户{p4.user}所属的流客户端")
+                messagebox.showerror("未检测到流客户端", f"未在本地检测到用户{P4Conn.user}所属的流客户端")
                 sys.exit()
 
         # 初始化回调
-        callbacks = AppCallbacks(p4, ui)
-        callbacks.Initialize(p4.client)
+        Callbacks = AppCallbacks(P4Conn, UI)
+        Callbacks.Initialize(P4Conn.client)
 
         # 启动主循环
-        root.mainloop()
+        Root.mainloop()
 
-    except P4Exception as e:
-        if 'User' in str(e) and "doesn't exist" in str(e):
+    except P4Exception as E:
+        if 'User' in str(E) and "doesn't exist" in str(E):
             messagebox.showerror("用户设置错误", "请检查p4 set中P4USER")
-        messagebox.showerror("程序运行错误", "\n".join(p4.errors))
-        ui.LogMessage("\n".join(p4.errors))
+        messagebox.showerror("程序运行错误", "\n".join(P4Conn.errors))
+        UI.LogMessage("\n".join(P4Conn.errors))
     finally:
-        if p4.connected():
-            p4.disconnect()
-            ui.LogMessage("P4服务器已断开，请确保服务器正确开启后重启该软件")
+        if P4Conn.connected():
+            P4Conn.disconnect()
+            UI.LogMessage("P4服务器已断开，请确保服务器正确开启后重启该软件")
 
 
 if __name__ == "__main__":

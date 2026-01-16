@@ -33,16 +33,16 @@ class AppUI:
         self._CreateWidgets()
 
     def _CreateWidgets(self):
-        row_idx = 0
+        RowIdx = 0
 
         # ========== 通用配置区域 ==========
-        general_frame = tk.LabelFrame(self.frame, text="通用配置", padx=10, pady=5)
-        general_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
-        general_frame.columnconfigure(1, weight=1)
+        GeneralFrame = tk.LabelFrame(self.frame, text="通用配置", padx=10, pady=5)
+        GeneralFrame.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
+        GeneralFrame.columnconfigure(1, weight=1)
 
         # 工作区标识
-        tk.Label(general_frame, text="工作区标识:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
-        TagFrame = tk.Frame(general_frame)
+        tk.Label(GeneralFrame, text="工作区标识:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        TagFrame = tk.Frame(GeneralFrame)
         TagFrame.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
         TagFrame.columnconfigure(0, weight=1)
 
@@ -58,38 +58,38 @@ class AppUI:
         self.widgets_default_settings.append([self.tag_save_button, 'disabled', ''])
 
         # 最大工作区
-        tk.Label(general_frame, text="最大工作区:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
-        self.max_workspace_spinbox = tk.Spinbox(general_frame, from_=1, to=99, textvariable=self.max_workspace_cnt_var, width=10)
+        tk.Label(GeneralFrame, text="最大工作区:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        self.max_workspace_spinbox = tk.Spinbox(GeneralFrame, from_=1, to=99, textvariable=self.max_workspace_cnt_var, width=10)
         self.max_workspace_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.max_workspace_spinbox, 'normal', ''])
 
-        row_idx += 1
+        RowIdx += 1
 
         # ========== 工作区配置区域 ==========
-        workspace_frame = tk.LabelFrame(self.frame, text="工作区配置", padx=10, pady=5)
-        workspace_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
-        workspace_frame.columnconfigure(1, weight=1)
+        WorkspaceFrame = tk.LabelFrame(self.frame, text="工作区配置", padx=10, pady=5)
+        WorkspaceFrame.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
+        WorkspaceFrame.columnconfigure(1, weight=1)
 
         # 选择流项目
-        tk.Label(workspace_frame, text="选择流项目:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
-        self.project_combo = ttk.Combobox(workspace_frame, textvariable=self.p4_project_var, state='readonly')
+        tk.Label(WorkspaceFrame, text="选择流项目:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        self.project_combo = ttk.Combobox(WorkspaceFrame, textvariable=self.p4_project_var, state='readonly')
         self.project_combo.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.project_combo, 'readonly', ''])
 
         # 选择流分支
-        tk.Label(workspace_frame, text="选择流分支:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
-        self.stream_combo = ttk.Combobox(workspace_frame, textvariable=self.p4_stream_var, state='readonly')
+        tk.Label(WorkspaceFrame, text="选择流分支:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        self.stream_combo = ttk.Combobox(WorkspaceFrame, textvariable=self.p4_stream_var, state='readonly')
         self.stream_combo.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.stream_combo, 'readonly', ''])
 
         # 工作区名称
-        tk.Label(workspace_frame, text="工作区名称:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
-        self.workspace_preview_label = tk.Label(workspace_frame, textvariable=self.workspace_preview_var, fg='gray')
+        tk.Label(WorkspaceFrame, text="工作区名称:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
+        self.workspace_preview_label = tk.Label(WorkspaceFrame, textvariable=self.workspace_preview_var, fg='gray')
         self.workspace_preview_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
 
         # 工作区目录
-        tk.Label(workspace_frame, text="工作区目录:").grid(row=3, column=0, padx=5, pady=5, sticky='e')
-        self.workspace_entry = tk.Entry(workspace_frame, textvariable=self.p4_workspace_var, state='readonly', cursor='hand2')
+        tk.Label(WorkspaceFrame, text="工作区目录:").grid(row=3, column=0, padx=5, pady=5, sticky='e')
+        self.workspace_entry = tk.Entry(WorkspaceFrame, textvariable=self.p4_workspace_var, state='readonly', cursor='hand2')
         self.workspace_entry.grid(row=3, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_entry, 'readonly', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
@@ -97,16 +97,16 @@ class AppUI:
 
         # 离线目录复选框
         self.offline_var = tk.BooleanVar(value=False)
-        self.offline_checkbox = tk.Checkbutton(workspace_frame, text="离线目录（使用 reconcile 保留本地修改）", variable=self.offline_var)
+        self.offline_checkbox = tk.Checkbutton(WorkspaceFrame, text="离线目录（使用 reconcile 保留本地修改）", variable=self.offline_var)
         self.offline_checkbox.grid(row=4, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
 
         # 切换并打开按钮
-        self.apply_button = tk.Button(workspace_frame, text="切换并打开 P4V")
+        self.apply_button = tk.Button(WorkspaceFrame, text="切换并打开 P4V")
         self.apply_button.grid(row=5, column=0, columnspan=2, pady=10)
         self.widgets_default_settings.append([self.apply_button, 'normal', self.apply_button.cget('fg')])
 
-        row_idx += 1
+        RowIdx += 1
 
         # ========== 进度条 ==========
         self.progress_bar = ttk.Progressbar(self.frame, mode='determinate')
@@ -120,29 +120,29 @@ class AppUI:
         self.progress_percentage_label = tk.Label(self.progress_label_frame, text="0%")
         self.progress_percentage_label.grid(row=0, column=1, sticky='e')
 
-        self.progress_bar.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
-        self.progress_label_frame.grid(row=row_idx+1, column=0, columnspan=3, sticky='ew')
+        self.progress_bar.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
+        self.progress_label_frame.grid(row=RowIdx+1, column=0, columnspan=3, sticky='ew')
         self.progress_bar.grid_remove()
         self.progress_label_frame.grid_remove()
 
-        row_idx += 2
+        RowIdx += 2
 
         # ========== 日志输出区 ==========
-        log_frame = tk.LabelFrame(self.frame, text="日志输出", padx=10, pady=5)
-        log_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='nsew')
-        log_frame.rowconfigure(0, weight=1)
-        log_frame.columnconfigure(0, weight=1)
+        LogFrame = tk.LabelFrame(self.frame, text="日志输出", padx=10, pady=5)
+        LogFrame.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=5, sticky='nsew')
+        LogFrame.rowconfigure(0, weight=1)
+        LogFrame.columnconfigure(0, weight=1)
 
-        self.log_text = tk.Text(log_frame, height=10, state='disabled')
+        self.log_text = tk.Text(LogFrame, height=10, state='disabled')
         self.log_text.grid(row=0, column=0, sticky='nsew')
 
-        scrollbar = tk.Scrollbar(log_frame, command=self.log_text.yview)
-        scrollbar.grid(row=0, column=1, sticky='ns')
-        self.log_text.configure(yscrollcommand=scrollbar.set)
+        Scrollbar = tk.Scrollbar(LogFrame, command=self.log_text.yview)
+        Scrollbar.grid(row=0, column=1, sticky='ns')
+        self.log_text.configure(yscrollcommand=Scrollbar.set)
 
-        self.frame.rowconfigure(row_idx, weight=3)
+        self.frame.rowconfigure(RowIdx, weight=3)
 
-        row_idx += 1
+        RowIdx += 1
 
         # ========== 状态栏 ==========
         self.server_user_var = tk.StringVar()
@@ -150,7 +150,7 @@ class AppUI:
         self._blink_state = False
         self._blink_job = None
         StatusFrame = tk.Frame(self.frame)
-        StatusFrame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
+        StatusFrame.grid(row=RowIdx, column=0, columnspan=3, padx=10, pady=2, sticky='ew')
         StatusFrame.columnconfigure(2, weight=1)
 
         # 状态指示点
@@ -166,53 +166,53 @@ class AppUI:
         self.used_workspace_label = tk.Label(StatusFrame, textvariable=self.available_workspace_var, anchor='e')
         self.used_workspace_label.grid(row=0, column=3, sticky='e')
 
-    def LogMessage(self, message: str):
+    def LogMessage(self, Msg: str):
         """在日志区添加消息"""
-        def append():
+        def Append():
             self.log_text.configure(state='normal')
-            self.log_text.insert('end', message + '\n')
+            self.log_text.insert('end', Msg + '\n')
             self.log_text.configure(state='disabled')
             self.log_text.see('end')
-        self.root.after(0, append)
+        self.root.after(0, Append)
 
     def ClearLog(self):
         """清空日志"""
-        def clear():
+        def Clear():
             self.log_text.configure(state='normal')
             self.log_text.delete('1.0', tk.END)
             self.log_text.configure(state='disabled')
-        self.root.after(0, clear)
+        self.root.after(0, Clear)
 
-    def UpdateProgress(self, current: int, total: int):
+    def UpdateProgress(self, Cur: int, Total: int):
         """更新进度条"""
-        percentage = int((current / total) * 100)
-        def update():
-            self.progress_bar['value'] = percentage
-            self.progress_percentage_label.configure(text=f"{percentage}%")
-        self.root.after(0, update)
+        Pct = int((Cur / Total) * 100)
+        def DoUpdate():
+            self.progress_bar['value'] = Pct
+            self.progress_percentage_label.configure(text=f"{Pct}%")
+        self.root.after(0, DoUpdate)
 
-    def UpdateOperationLabel(self, text: str):
+    def UpdateOperationLabel(self, Text: str):
         """更新当前操作标签"""
-        def update():
-            self.operation_label.configure(text=text)
-        self.root.after(0, update)
+        def DoUpdate():
+            self.operation_label.configure(text=Text)
+        self.root.after(0, DoUpdate)
 
     def ShowProgressBar(self):
         """显示进度条"""
-        def show():
+        def Show():
             self.progress_bar['value'] = 0
             self.progress_bar['maximum'] = 100
             self.progress_bar.grid()
             self.progress_label_frame.grid()
             self.progress_percentage_label.configure(text="0%")
-        self.root.after(0, show)
+        self.root.after(0, Show)
 
     def HideProgressBar(self):
         """隐藏进度条"""
-        def hide():
+        def Hide():
             self.progress_bar.grid_remove()
             self.progress_label_frame.grid_remove()
-        self.root.after(0, hide)
+        self.root.after(0, Hide)
 
     def DisableUI(self):
         """禁用所有输入控件"""

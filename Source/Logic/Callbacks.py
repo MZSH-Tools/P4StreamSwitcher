@@ -137,11 +137,11 @@ class AppCallbacks:
     def OnMaxWorkspaceCntChanged(self, event=None):
         """最大工作区数量改变，保存到缓存"""
         try:
-            cnt = self.ui.max_workspace_cnt_var.get()
-            if cnt < 1:
-                cnt = 1
-                self.ui.max_workspace_cnt_var.set(cnt)
-            self.global_config.SetMaxWorkspaceCnt(cnt)
+            Cnt = self.ui.max_workspace_cnt_var.get()
+            if Cnt < 1:
+                Cnt = 1
+                self.ui.max_workspace_cnt_var.set(Cnt)
+            self.global_config.SetMaxWorkspaceCnt(Cnt)
             self._UpdateUsedWorkspace()
         except Exception:
             pass
@@ -152,34 +152,34 @@ class AppCallbacks:
 
     def OnProjectSelected(self, event=None):
         """项目选择事件"""
-        select_project = self.ui.p4_project_var.get()
-        if select_project == self.default_project:
+        SelectProject = self.ui.p4_project_var.get()
+        if SelectProject == self.default_project:
             self.ui.p4_stream_var.set(self.default_stream)
             self.select_stream_path = self.default_stream_path
         else:
-            streams = GetAllStreams(self.p4)
-            for stream in streams:
-                if stream.get('Type') == 'mainline':
-                    parsed = ParseStreamPath(stream.get('Stream', ''))
-                    if parsed[0] == select_project:
-                        self.ui.p4_stream_var.set(parsed[1])
-                        self.select_stream_path = stream.get('Stream', '')
+            Streams = GetAllStreams(self.p4)
+            for S in Streams:
+                if S.get('Type') == 'mainline':
+                    Parsed = ParseStreamPath(S.get('Stream', ''))
+                    if Parsed[0] == SelectProject:
+                        self.ui.p4_stream_var.set(Parsed[1])
+                        self.select_stream_path = S.get('Stream', '')
                         break
         self._UpdateWorkspaceFromCache()
         self._UpdateWorkspacePreview()
 
     def OnStreamDropdown(self, event=None):
         """分支下拉框点击事件"""
-        cur_project = self.ui.p4_project_var.get()
-        self.ui.stream_combo['values'] = GetProjectStreams(self.p4, cur_project)
+        CurProject = self.ui.p4_project_var.get()
+        self.ui.stream_combo['values'] = GetProjectStreams(self.p4, CurProject)
 
     def OnStreamSelected(self, event=None):
         """分支选择事件"""
         if not self.select_stream_path:
             return
-        path_array = self.select_stream_path.split('/')[-3:-1]
-        if len(path_array) >= 2:
-            self.select_stream_path = f"//{path_array[0]}/{path_array[1]}/{self.ui.p4_stream_var.get()}"
+        PathArray = self.select_stream_path.split('/')[-3:-1]
+        if len(PathArray) >= 2:
+            self.select_stream_path = f"//{PathArray[0]}/{PathArray[1]}/{self.ui.p4_stream_var.get()}"
         self._UpdateWorkspaceFromCache()
         self._UpdateWorkspacePreview()
 
@@ -295,39 +295,39 @@ class AppCallbacks:
         self.ui.DisableUI()
         threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
 
-    def _RunSyncAndClean(self, is_offline: bool = False):
+    def _RunSyncAndClean(self, IsOffline: bool = False):
         """执行同步和清理操作"""
-        p4_thread = None
+        P4Thread = None
         try:
             self.ui.UpdateOperationLabel("正在连接服务器...")
-            command_target = f"//{self.cur_client}/..."
-            workspace_root = self.ui.p4_workspace_var.get()
+            CmdTarget = f"//{self.cur_client}/..."
+            WorkspaceRoot = self.ui.p4_workspace_var.get()
 
-            p4_thread = P4()
-            p4_thread.connect()
-            p4_thread.client = self.cur_client
+            P4Thread = P4()
+            P4Thread.connect()
+            P4Thread.client = self.cur_client
 
             # 步骤1: sync -k 更新 have list
             self.ui.UpdateOperationLabel("正在更新文件索引...")
             self.ui.LogMessage("执行 sync -k 更新 have list...")
             try:
-                RunSync(p4_thread, command_target, flush_only=True)
+                RunSync(P4Thread, CmdTarget, flush_only=True)
                 self.ui.LogMessage("have list 更新完成。")
-            except P4Exception as e:
-                err_str = str(e).lower()
-                if "up-to-date" in err_str or "no file(s)" in err_str:
+            except P4Exception as E:
+                ErrStr = str(E).lower()
+                if "up-to-date" in ErrStr or "no file(s)" in ErrStr:
                     self.ui.LogMessage("have list 已是最新状态。")
                 else:
                     raise
 
-            if is_offline:
+            if IsOffline:
                 # 离线目录流程：使用 reconcile
                 self.ui.UpdateOperationLabel("正在执行 reconcile...")
                 self.ui.LogMessage("执行 reconcile 识别本地修改...")
-                result = RunReconcile(p4_thread, command_target)
-                total = result["edit"] + result["add"] + result["delete"]
-                self.ui.LogMessage(f"reconcile 完成：{result['edit']} 个修改，{result['add']} 个新增，{result['delete']} 个删除")
-                if total > 0:
+                Result = RunReconcile(P4Thread, CmdTarget)
+                Total = Result["edit"] + Result["add"] + Result["delete"]
+                self.ui.LogMessage(f"reconcile 完成：{Result['edit']} 个修改，{Result['add']} 个新增，{Result['delete']} 个删除")
+                if Total > 0:
                     self.ui.LogMessage("所有变更已放入默认 changelist，请在 P4V 中查看。")
                 else:
                     self.ui.LogMessage("本地与服务器一致，无需处理。")
@@ -336,19 +336,19 @@ class AppCallbacks:
                 # 步骤2: 解析 .p4ignore
                 self.ui.UpdateOperationLabel("正在解析 .p4ignore...")
                 self.ui.LogMessage("读取 .p4ignore 规则...")
-                ignore_parser = P4IgnoreParser(workspace_root)
-                self.ui.LogMessage(f"已加载 {len(ignore_parser.patterns)} 条忽略规则。")
+                IgnoreParser = P4IgnoreParser(WorkspaceRoot)
+                self.ui.LogMessage(f"已加载 {len(IgnoreParser.patterns)} 条忽略规则。")
 
                 # 步骤3: 获取 have list
                 self.ui.UpdateOperationLabel("正在获取文件列表...")
                 self.ui.LogMessage("获取 have list...")
                 try:
-                    have_paths = GetHaveList(p4_thread, command_target)
-                    self.ui.LogMessage(f"have list 包含 {len(have_paths)} 个文件。")
-                except P4Exception as e:
-                    err_str = str(e).lower()
-                    if "no file(s)" in err_str:
-                        have_paths = set()
+                    HavePaths = GetHaveList(P4Thread, CmdTarget)
+                    self.ui.LogMessage(f"have list 包含 {len(HavePaths)} 个文件。")
+                except P4Exception as E:
+                    ErrStr = str(E).lower()
+                    if "no file(s)" in ErrStr:
+                        HavePaths = set()
                         self.ui.LogMessage("have list 为空。")
                     else:
                         raise
@@ -356,60 +356,60 @@ class AppCallbacks:
                 # 步骤4: 删除多余文件
                 self.ui.UpdateOperationLabel("正在清理多余文件...")
                 self.ui.LogMessage("检测并删除多余的版本控制文件...")
-                deleted_count = DeleteObsoleteFiles(workspace_root, have_paths, ignore_parser, self.ui.LogMessage)
-                self.ui.LogMessage(f"已删除 {deleted_count} 个多余文件。")
+                DeletedCnt = DeleteObsoleteFiles(WorkspaceRoot, HavePaths, IgnoreParser, self.ui.LogMessage)
+                self.ui.LogMessage(f"已删除 {DeletedCnt} 个多余文件。")
 
                 # 步骤5: diff -se 覆盖内容不同的文件
                 self.ui.UpdateOperationLabel("正在检测修改文件...")
                 self.ui.LogMessage("执行 diff -se 检测内容不同的文件...")
-                different_files = GetDifferentFiles(p4_thread, command_target)
-                self.ui.LogMessage(f"发现 {len(different_files)} 个内容不同的文件。")
+                DiffFiles = GetDifferentFiles(P4Thread, CmdTarget)
+                self.ui.LogMessage(f"发现 {len(DiffFiles)} 个内容不同的文件。")
 
                 # 步骤6: diff -sd 下载缺失的文件
                 self.ui.UpdateOperationLabel("正在检测缺失文件...")
                 self.ui.LogMessage("执行 diff -sd 检测缺失的文件...")
-                missing_files = GetMissingFiles(p4_thread, command_target)
-                self.ui.LogMessage(f"发现 {len(missing_files)} 个缺失的文件。")
+                MissingFiles = GetMissingFiles(P4Thread, CmdTarget)
+                self.ui.LogMessage(f"发现 {len(MissingFiles)} 个缺失的文件。")
 
                 # 步骤7: 同步问题文件（先覆盖不同，再下载缺失）
-                problem_files = different_files + missing_files
-                if problem_files:
+                ProblemFiles = DiffFiles + MissingFiles
+                if ProblemFiles:
                     self.ui.ShowProgressBar()
-                    total_files = len(problem_files)
+                    TotalFiles = len(ProblemFiles)
 
-                    def on_file_processed(count, depot_file):
-                        self.ui.UpdateProgress(count, total_files)
-                        self.ui.LogMessage(depot_file)
+                    def OnFileProcessed(Cnt, DepotFile):
+                        self.ui.UpdateProgress(Cnt, TotalFiles)
+                        self.ui.LogMessage(DepotFile)
 
-                    handler = SyncOutputHandler(on_file_processed, self.ui.LogMessage)
+                    Handler = SyncOutputHandler(OnFileProcessed, self.ui.LogMessage)
 
-                    self.ui.UpdateOperationLabel(f"正在同步 {total_files} 个文件...")
-                    self.ui.LogMessage(f"执行 sync -f --parallel 同步 {total_files} 个文件...")
+                    self.ui.UpdateOperationLabel(f"正在同步 {TotalFiles} 个文件...")
+                    self.ui.LogMessage(f"执行 sync -f --parallel 同步 {TotalFiles} 个文件...")
                     try:
-                        SyncFiles(p4_thread, problem_files, handler, parallel=8)
+                        SyncFiles(P4Thread, ProblemFiles, Handler, parallel=8)
                         self.ui.LogMessage("文件同步完成。")
-                    except P4Exception as e:
-                        err_str = str(e).lower()
-                        if "up-to-date" in err_str:
+                    except P4Exception as E:
+                        ErrStr = str(E).lower()
+                        if "up-to-date" in ErrStr:
                             self.ui.LogMessage("文件已是最新状态。")
                         else:
-                            self.ui.LogMessage(f"同步部分文件时出错：{e}")
+                            self.ui.LogMessage(f"同步部分文件时出错：{E}")
                 else:
                     self.ui.LogMessage("所有文件已是最新状态。")
 
             self.ui.UpdateOperationLabel("操作已完成。")
 
-        except P4Exception as e:
-            self.ui.LogMessage("同步操作中发生错误：" + "\n".join(e.errors))
+        except P4Exception as E:
+            self.ui.LogMessage("同步操作中发生错误：" + "\n".join(E.errors))
             HasError = True
-        except Exception as e:
-            self.ui.LogMessage(f"操作中发生错误：{e}")
+        except Exception as E:
+            self.ui.LogMessage(f"操作中发生错误：{E}")
             HasError = True
         else:
             HasError = False
         finally:
-            if p4_thread and p4_thread.connected():
-                p4_thread.disconnect()
+            if P4Thread and P4Thread.connected():
+                P4Thread.disconnect()
             self._FinishSyncAndClean(HasError)
 
     def _FinishSyncAndClean(self, HasError: bool = False):
@@ -428,33 +428,33 @@ class AppCallbacks:
 
     def _UpdateWorkspaceFromCache(self):
         """根据缓存或默认值更新工作区目录和离线状态"""
-        cached = self.workspace_cache.Get(self.select_stream_path) if self.workspace_cache else None
-        offline = self.workspace_cache.GetOffline(self.select_stream_path) if self.workspace_cache else False
+        Cached = self.workspace_cache.Get(self.select_stream_path) if self.workspace_cache else None
+        OfflineFlag = self.workspace_cache.GetOffline(self.select_stream_path) if self.workspace_cache else False
 
-        self.ui.offline_var.set(offline)
+        self.ui.offline_var.set(OfflineFlag)
 
-        if cached:
-            self.ui.p4_workspace_var.set(cached)
+        if Cached:
+            self.ui.p4_workspace_var.set(Cached)
             self.ui.SetWorkspaceSource(is_cached=True)
         else:
-            default_path = os.path.join(self.default_workspace_root, self.ui.p4_project_var.get())
-            self.ui.p4_workspace_var.set(default_path)
+            DefaultPath = os.path.join(self.default_workspace_root, self.ui.p4_project_var.get())
+            self.ui.p4_workspace_var.set(DefaultPath)
             self.ui.SetWorkspaceSource(is_cached=False)
-            self.ui.LogMessage(f"该流没有缓存记录，使用默认路径: {default_path}")
+            self.ui.LogMessage(f"该流没有缓存记录，使用默认路径: {DefaultPath}")
 
     def _UpdateWorkspacePreview(self):
         """更新工作区名称预览"""
-        tag = self.ui.workspace_tag_var.get().strip() or "<标识>"
-        project = self.ui.p4_project_var.get() or "<项目>"
-        stream = self.ui.p4_stream_var.get() or "<分支>"
-        name = f"{tag}_{project}_{stream}"
+        TagStr = self.ui.workspace_tag_var.get().strip() or "<标识>"
+        ProjectStr = self.ui.p4_project_var.get() or "<项目>"
+        StreamStr = self.ui.p4_stream_var.get() or "<分支>"
+        Name = f"{TagStr}_{ProjectStr}_{StreamStr}"
         # 检查工作区是否存在
         try:
-            clients = GetAllClients(self.p4)
-            exists = any(c.get('client') == name for c in clients)
+            Clients = GetAllClients(self.p4)
+            Exists = any(C.get('client') == Name for C in Clients)
         except Exception:
-            exists = False
-        self.ui.UpdateWorkspacePreview(name, exists)
+            Exists = False
+        self.ui.UpdateWorkspacePreview(Name, Exists)
 
     def _UpdateUsedWorkspace(self):
         """更新使用工作区显示，只统计符合 标识_项目_分支 命名格式的工作区"""
@@ -482,12 +482,12 @@ class AppCallbacks:
 
     def OnWorkspaceClick(self, event=None):
         """工作区目录点击事件，打开目录选择对话框"""
-        cur_path = self.ui.p4_workspace_var.get()
+        CurPath = self.ui.p4_workspace_var.get()
         # 查找存在的目录作为初始目录
-        initial_dir = self._FindExistingParent(cur_path)
-        path = filedialog.askdirectory(initialdir=initial_dir)
-        if path:
-            self.ui.p4_workspace_var.set(path)
+        InitialDir = self._FindExistingParent(CurPath)
+        SelectedPath = filedialog.askdirectory(initialdir=InitialDir)
+        if SelectedPath:
+            self.ui.p4_workspace_var.set(SelectedPath)
             self.ui.SetWorkspaceSourceManual()
 
     def OnOfflineChanged(self):
@@ -495,15 +495,15 @@ class AppCallbacks:
         if self.workspace_cache and self.select_stream_path:
             self.workspace_cache.SetOffline(self.select_stream_path, self.ui.offline_var.get())
 
-    def _FindExistingParent(self, path: str) -> str:
+    def _FindExistingParent(self, Path: str) -> str:
         """向上查找存在的父目录"""
-        while path:
-            if os.path.isdir(path):
-                return path
-            parent = os.path.dirname(path)
-            if parent == path:
+        while Path:
+            if os.path.isdir(Path):
+                return Path
+            Parent = os.path.dirname(Path)
+            if Parent == Path:
                 break
-            path = parent
+            Path = Parent
         return os.path.expanduser("~")
 
     def _ResetDefaultVars(self):
@@ -511,16 +511,16 @@ class AppCallbacks:
         self.default_project = self.ui.p4_project_var.get()
         self.default_stream = self.ui.p4_stream_var.get()
 
-        client_info = GetClientInfo(self.p4, self.cur_client)
-        if client_info:
-            self.default_stream_path = client_info.get('Stream', '')
-            workspace_root = client_info.get('Root', '')
-            workspace_array = workspace_root.split('\\')[:-1]
-            if len(workspace_array) > 1:
-                workspace_array.insert(1, '\\')
-                self.default_workspace_root = os.path.join(*workspace_array)
+        ClientInfo = GetClientInfo(self.p4, self.cur_client)
+        if ClientInfo:
+            self.default_stream_path = ClientInfo.get('Stream', '')
+            WorkspaceRoot = ClientInfo.get('Root', '')
+            WorkspaceArray = WorkspaceRoot.split('\\')[:-1]
+            if len(WorkspaceArray) > 1:
+                WorkspaceArray.insert(1, '\\')
+                self.default_workspace_root = os.path.join(*WorkspaceArray)
             else:
-                self.default_workspace_root = workspace_root
+                self.default_workspace_root = WorkspaceRoot
 
         self._UpdateWorkspaceFromCache()
 
