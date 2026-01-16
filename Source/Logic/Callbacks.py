@@ -254,13 +254,6 @@ class AppCallbacks:
                 self.ui.LogMessage("用户取消操作。")
                 return
 
-        # 检查 P4V 是否运行中（创建工作区需要同步，P4V 可能导致文件锁定）
-        self.ui.LogMessage("正在检查 Perforce GUI 客户端...")
-        if IsP4GUIRunning():
-            messagebox.showwarning("无法创建", "检测到 P4V 正在运行中。\n\n请先关闭 P4V 后重试。")
-            self.ui.LogMessage("检测到 P4V 运行中，操作已取消。")
-            return
-
         CurrentClients = GetLocalClientsWithTag(self.p4, Tag)
         CurrentCnt = len(CurrentClients)
 
@@ -274,16 +267,24 @@ class AppCallbacks:
                 messagebox.showerror("错误", "无法找到可删除的工作区")
                 return
 
-            self.ui.LogMessage(f"已达最大工作区数量 ({CurrentCnt}/{MaxCnt})，删除最旧工作区 {OldestClient}...")
+            self.ui.LogMessage(f"已达最大工作区数量 ({CurrentCnt}/{MaxCnt})，需要删除最旧工作区 {OldestClient}...")
 
-            # 检查最旧工作区是否有未提交修改
+            # 检查待删除工作区是否有未提交修改
             OpenedFiles = GetOpenedFiles(self.p4, OldestClient)
-            if OpenedFiles:
-                Cnt = len(OpenedFiles)
-                Preview = "\n".join([F.get('depotFile', '') for F in OpenedFiles[:5] if isinstance(F, dict)])
-                messagebox.showwarning("无法切换",
-                    f"待删除的工作区 {OldestClient} 有 {Cnt} 个未提交文件：\n\n{Preview}\n\n请先提交或撤销修改。")
-                self.ui.LogMessage(f"工作区 {OldestClient} 有未提交文件，操作已取消。")
+            # 检查 P4V 是否正在运行（可能正在使用该工作区）
+            P4VRunning = IsP4GUIRunning()
+
+            if OpenedFiles or P4VRunning:
+                ErrMsg = f"无法删除工作区 {OldestClient}：\n\n"
+                if OpenedFiles:
+                    Cnt = len(OpenedFiles)
+                    Preview = "\n".join([F.get('depotFile', '') for F in OpenedFiles[:5] if isinstance(F, dict)])
+                    ErrMsg += f"• 有 {Cnt} 个未提交文件：\n{Preview}\n\n"
+                if P4VRunning:
+                    ErrMsg += "• P4V 正在运行中（可能正在使用该工作区）\n\n"
+                ErrMsg += "请手动处理后重试。"
+                messagebox.showerror("无法删除工作区", ErrMsg)
+                self.ui.LogMessage(f"工作区 {OldestClient} 无法删除，操作已取消。")
                 return
 
             # 删除旧工作区
