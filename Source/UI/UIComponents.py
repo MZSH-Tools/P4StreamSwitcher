@@ -21,73 +21,85 @@ class AppUI:
         self.frame.columnconfigure(1, weight=1)
 
         # 变量
-        self.p4_server_var = tk.StringVar()
-        self.p4_user_var = tk.StringVar()
-        self.p4_client_var = tk.StringVar()
+        self.workspace_tag_var = tk.StringVar()
+        self.max_workspace_cnt_var = tk.IntVar(value=5)
+        self.available_workspace_var = tk.StringVar(value="0/5")
         self.p4_project_var = tk.StringVar()
         self.p4_stream_var = tk.StringVar()
         self.p4_workspace_var = tk.StringVar()
+        self.workspace_preview_var = tk.StringVar()
 
         self.widgets_default_settings = []
         self._CreateWidgets()
 
     def _CreateWidgets(self):
-        row_index = 0
+        row_idx = 0
 
-        # 服务器
-        tk.Label(self.frame, text="服务器:").grid(row=row_index, column=0, padx=10, pady=5, sticky='e')
-        self.server_entry = tk.Entry(self.frame, textvariable=self.p4_server_var, state='readonly')
-        self.server_entry.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
-        self.widgets_default_settings.append([self.server_entry, 'readonly', self.server_entry.cget('fg')])
+        # ========== 通用配置区域 ==========
+        general_frame = tk.LabelFrame(self.frame, text="通用配置", padx=10, pady=5)
+        general_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
+        general_frame.columnconfigure(1, weight=1)
 
-        row_index += 1
-        # 用户
-        tk.Label(self.frame, text="用户:").grid(row=row_index, column=0, padx=10, pady=5, sticky='e')
-        self.user_entry = tk.Entry(self.frame, textvariable=self.p4_user_var, state='readonly')
-        self.user_entry.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
-        self.widgets_default_settings.append([self.user_entry, 'readonly', self.user_entry.cget('fg')])
+        # 工作区标识
+        tk.Label(general_frame, text="工作区标识:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        self.workspace_tag_entry = tk.Entry(general_frame, textvariable=self.workspace_tag_var)
+        self.workspace_tag_entry.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
+        self.widgets_default_settings.append([self.workspace_tag_entry, 'normal', self.workspace_tag_entry.cget('fg')])
 
-        row_index += 1
-        # 流客户端
-        tk.Label(self.frame, text="流客户端:").grid(row=row_index, column=0, padx=10, pady=5, sticky='e')
-        self.client_combo = ttk.Combobox(self.frame, textvariable=self.p4_client_var, state='readonly')
-        self.client_combo.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
-        self.widgets_default_settings.append([self.client_combo, 'readonly', ''])
+        # 最大工作区数量
+        tk.Label(general_frame, text="最大工作区数量:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        self.max_workspace_spinbox = tk.Spinbox(general_frame, from_=1, to=99, textvariable=self.max_workspace_cnt_var, width=10)
+        self.max_workspace_spinbox.grid(row=1, column=1, padx=5, pady=5, sticky='w')
+        self.widgets_default_settings.append([self.max_workspace_spinbox, 'normal', ''])
 
-        row_index += 1
-        # 流项目
-        tk.Label(self.frame, text="选择流项目:").grid(row=row_index, column=0, padx=10, pady=5, sticky='e')
-        self.project_combo = ttk.Combobox(self.frame, textvariable=self.p4_project_var, state='readonly')
-        self.project_combo.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
+        # 可用工作区显示
+        tk.Label(general_frame, text="可用工作区:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
+        self.available_workspace_label = tk.Label(general_frame, textvariable=self.available_workspace_var)
+        self.available_workspace_label.grid(row=2, column=1, padx=5, pady=5, sticky='w')
+
+        row_idx += 1
+
+        # ========== 工作区配置区域 ==========
+        workspace_frame = tk.LabelFrame(self.frame, text="工作区配置", padx=10, pady=5)
+        workspace_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
+        workspace_frame.columnconfigure(1, weight=1)
+
+        # 选择流项目
+        tk.Label(workspace_frame, text="选择流项目:").grid(row=0, column=0, padx=5, pady=5, sticky='e')
+        self.project_combo = ttk.Combobox(workspace_frame, textvariable=self.p4_project_var, state='readonly')
+        self.project_combo.grid(row=0, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.project_combo, 'readonly', ''])
 
-        row_index += 1
-        # 流分支
-        tk.Label(self.frame, text="选择流分支:").grid(row=row_index, column=0, padx=10, pady=5, sticky='e')
-        self.stream_combo = ttk.Combobox(self.frame, textvariable=self.p4_stream_var, state='readonly')
-        self.stream_combo.grid(row=row_index, column=1, padx=10, pady=5, sticky='ew')
+        # 选择流分支
+        tk.Label(workspace_frame, text="选择流分支:").grid(row=1, column=0, padx=5, pady=5, sticky='e')
+        self.stream_combo = ttk.Combobox(workspace_frame, textvariable=self.p4_stream_var, state='readonly')
+        self.stream_combo.grid(row=1, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.stream_combo, 'readonly', ''])
 
-        row_index += 1
-        # 工作区目录（只读，点击选择）
-        tk.Label(self.frame, text="工作区目录:").grid(row=row_index, column=0, padx=10, pady=5, sticky='e')
-        self.workspace_entry = tk.Entry(self.frame, textvariable=self.p4_workspace_var, state='readonly', cursor='hand2')
-        self.workspace_entry.grid(row=row_index, column=1, columnspan=2, padx=10, pady=5, sticky='ew')
+        # 工作区目录
+        tk.Label(workspace_frame, text="工作区目录:").grid(row=2, column=0, padx=5, pady=5, sticky='e')
+        self.workspace_entry = tk.Entry(workspace_frame, textvariable=self.p4_workspace_var, state='readonly', cursor='hand2')
+        self.workspace_entry.grid(row=2, column=1, padx=5, pady=5, sticky='ew')
         self.widgets_default_settings.append([self.workspace_entry, 'readonly', self.workspace_entry.cget('fg')])
         self.workspace_default_fg = self.workspace_entry.cget('fg')
-        self.workspace_is_default = False  # 是否使用默认路径
+        self.workspace_is_default = False
 
-        row_index += 1
         # 离线目录复选框
         self.offline_var = tk.BooleanVar(value=False)
-        self.offline_checkbox = tk.Checkbutton(self.frame, text="离线目录（使用 reconcile 保留本地修改）", variable=self.offline_var)
-        self.offline_checkbox.grid(row=row_index, column=1, padx=10, pady=5, sticky='w')
+        self.offline_checkbox = tk.Checkbutton(workspace_frame, text="离线目录（使用 reconcile 保留本地修改）", variable=self.offline_var)
+        self.offline_checkbox.grid(row=3, column=1, padx=5, pady=5, sticky='w')
         self.widgets_default_settings.append([self.offline_checkbox, 'normal', ''])
 
-        row_index += 1
-        # 按钮区域
+        # 工作区名称预览
+        tk.Label(workspace_frame, text="工作区名称:").grid(row=4, column=0, padx=5, pady=5, sticky='e')
+        self.workspace_preview_label = tk.Label(workspace_frame, textvariable=self.workspace_preview_var, fg='gray')
+        self.workspace_preview_label.grid(row=4, column=1, padx=5, pady=5, sticky='w')
+
+        row_idx += 1
+
+        # ========== 按钮区域 ==========
         button_frame = tk.Frame(self.frame)
-        button_frame.grid(row=row_index, column=0, columnspan=2, pady=10)
+        button_frame.grid(row=row_idx, column=0, columnspan=3, pady=10)
 
         self.apply_button = tk.Button(button_frame, text="一键切换")
         self.apply_button.pack(side='left', padx=5)
@@ -97,8 +109,9 @@ class AppUI:
         self.p4v_button.pack(side='left', padx=5)
         self.widgets_default_settings.append([self.p4v_button, 'normal', self.p4v_button.cget('fg')])
 
-        row_index += 1
-        # 进度条
+        row_idx += 1
+
+        # ========== 进度条 ==========
         self.progress_bar = ttk.Progressbar(self.frame, mode='determinate')
         self.progress_label_frame = tk.Frame(self.frame)
         self.progress_label_frame.grid_columnconfigure(0, weight=1)
@@ -110,23 +123,27 @@ class AppUI:
         self.progress_percentage_label = tk.Label(self.progress_label_frame, text="0%")
         self.progress_percentage_label.grid(row=0, column=1, sticky='e')
 
-        self.progress_bar.grid(row=row_index, column=0, columnspan=2, padx=10, pady=5, sticky='ew')
-        self.progress_label_frame.grid(row=row_index+1, column=0, columnspan=2, sticky='ew')
+        self.progress_bar.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='ew')
+        self.progress_label_frame.grid(row=row_idx+1, column=0, columnspan=3, sticky='ew')
         self.progress_bar.grid_remove()
         self.progress_label_frame.grid_remove()
 
-        row_index += 2
-        # 日志输出区
-        tk.Label(self.frame, text="日志输出：").grid(row=row_index, column=0, padx=10, pady=5, sticky='nw')
+        row_idx += 2
 
-        self.log_text = tk.Text(self.frame, height=10, state='disabled')
-        self.log_text.grid(row=row_index, column=1, padx=10, pady=5, sticky='nsew')
+        # ========== 日志输出区 ==========
+        log_frame = tk.LabelFrame(self.frame, text="日志输出", padx=10, pady=5)
+        log_frame.grid(row=row_idx, column=0, columnspan=3, padx=10, pady=5, sticky='nsew')
+        log_frame.rowconfigure(0, weight=1)
+        log_frame.columnconfigure(0, weight=1)
 
-        scrollbar = tk.Scrollbar(self.frame, command=self.log_text.yview)
-        scrollbar.grid(row=row_index, column=2, sticky='ns')
+        self.log_text = tk.Text(log_frame, height=10, state='disabled')
+        self.log_text.grid(row=0, column=0, sticky='nsew')
+
+        scrollbar = tk.Scrollbar(log_frame, command=self.log_text.yview)
+        scrollbar.grid(row=0, column=1, sticky='ns')
         self.log_text.configure(yscrollcommand=scrollbar.set)
 
-        self.frame.rowconfigure(row_index, weight=3)
+        self.frame.rowconfigure(row_idx, weight=3)
 
     def LogMessage(self, message: str):
         """在日志区添加消息"""
@@ -202,3 +219,14 @@ class AppUI:
         """设置工作区路径来源为手动选择（正常颜色）"""
         self.workspace_is_default = False
         self.workspace_entry.configure(fg=self.workspace_default_fg)
+
+    def UpdateWorkspacePreview(self, tag: str, project: str, stream: str):
+        """更新工作区名称预览"""
+        if tag and project and stream:
+            self.workspace_preview_var.set(f"{tag}_{project}_{stream}")
+        else:
+            self.workspace_preview_var.set("")
+
+    def UpdateAvailableWorkspace(self, available: int, max_cnt: int):
+        """更新可用工作区显示"""
+        self.available_workspace_var.set(f"{available}/{max_cnt}")

@@ -21,8 +21,6 @@ def main():
             sys.exit()
 
         ui.LogMessage("成功连接到 P4 服务器！")
-        ui.p4_server_var.set(p4.port)
-        ui.p4_user_var.set(p4.user)
 
         # 获取本地流客户端
         local_stream_clients = GetLocalStreamClients(p4)
@@ -33,11 +31,9 @@ def main():
                 messagebox.showerror("未检测到流客户端", f"未在本地检测到用户{p4.user}所属的流客户端")
                 sys.exit()
 
-        ui.p4_client_var.set(p4.client)
-
         # 初始化回调
         callbacks = AppCallbacks(p4, ui)
-        callbacks.Initialize()
+        callbacks.Initialize(p4.client)
 
         # 启动主循环
         root.mainloop()

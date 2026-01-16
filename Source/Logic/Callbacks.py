@@ -10,7 +10,7 @@ from Source.Data.P4Core import (
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
     IsP4GUIRunning, RunReconcile, LaunchP4V
 )
-from Source.Data.WorkspaceCache import WorkspaceCache
+from Source.Data.WorkspaceCache import WorkspaceCache, GlobalConfig
 from Source.UI.UIComponents import AppUI
 
 
@@ -21,6 +21,9 @@ class AppCallbacks:
         self.p4 = p4
         self.ui = ui
 
+        # 全局配置
+        self.global_config = GlobalConfig()
+
         # 状态变量
         self.select_stream_path = ""
         self.default_project = ""
@@ -28,13 +31,12 @@ class AppCallbacks:
         self.default_workspace_root = ""
         self.default_stream_path = ""
         self.workspace_cache = None
+        self.cur_client = ""
 
         self._BindEvents()
 
     def _BindEvents(self):
         """绑定 UI 事件"""
-        self.ui.client_combo.bind("<Button-1>", self.OnClientDropdown)
-        self.ui.client_combo.bind("<<ComboboxSelected>>", self.OnClientSelected)
         self.ui.project_combo.bind("<Button-1>", self.OnProjectDropdown)
         self.ui.project_combo.bind("<<ComboboxSelected>>", self.OnProjectSelected)
         self.ui.stream_combo.bind("<Button-1>", self.OnStreamDropdown)
@@ -43,23 +45,37 @@ class AppCallbacks:
         self.ui.workspace_entry.bind("<Button-1>", self.OnWorkspaceClick)
         self.ui.p4v_button.configure(command=self.OnOpenP4V)
         self.ui.offline_checkbox.configure(command=self.OnOfflineChanged)
+        # 通用配置事件
+        self.ui.workspace_tag_entry.bind("<FocusOut>", self.OnWorkspaceTagChanged)
+        self.ui.workspace_tag_var.trace_add("write", self._OnTagVarChanged)
+        self.ui.max_workspace_spinbox.bind("<FocusOut>", self.OnMaxWorkspaceCntChanged)
+        self.ui.max_workspace_cnt_var.trace_add("write", self._OnMaxCntVarChanged)
 
-    def OnClientDropdown(self, event=None):
-        """客户端下拉框点击事件"""
-        self.ui.client_combo['values'] = GetLocalStreamClients(self.p4)
+    def _OnTagVarChanged(self, *args):
+        """工作区标识变量改变时更新预览"""
+        self._UpdateWorkspacePreview()
 
-    def OnClientSelected(self, event=None):
-        """客户端选择事件"""
-        cur_client = self.ui.p4_client_var.get()
-        # 加载该客户端的缓存
-        self.workspace_cache = WorkspaceCache(cur_client)
-        client_info = GetClientInfo(self.p4, cur_client)
-        if client_info:
-            self.select_stream_path = client_info.get('Stream', '')
-            parsed = ParseStreamPath(self.select_stream_path)
-            self.ui.p4_project_var.set(parsed[0])
-            self.ui.p4_stream_var.set(parsed[1])
-        self._ResetDefaultVars()
+    def _OnMaxCntVarChanged(self, *args):
+        """最大工作区数量变量改变时更新显示"""
+        self._UpdateAvailableWorkspace()
+
+    def OnWorkspaceTagChanged(self, event=None):
+        """工作区标识输入框失去焦点，保存到缓存"""
+        tag = self.ui.workspace_tag_var.get().strip()
+        self.global_config.SetWorkspaceTag(tag)
+        self._UpdateWorkspacePreview()
+
+    def OnMaxWorkspaceCntChanged(self, event=None):
+        """最大工作区数量改变，保存到缓存"""
+        try:
+            cnt = self.ui.max_workspace_cnt_var.get()
+            if cnt < 1:
+                cnt = 1
+                self.ui.max_workspace_cnt_var.set(cnt)
+            self.global_config.SetMaxWorkspaceCnt(cnt)
+            self._UpdateAvailableWorkspace()
+        except Exception:
+            pass
 
     def OnProjectDropdown(self, event=None):
         """项目下拉框点击事件"""
@@ -81,6 +97,7 @@ class AppCallbacks:
                         self.select_stream_path = stream.get('Stream', '')
                         break
         self._UpdateWorkspaceFromCache()
+        self._UpdateWorkspacePreview()
 
     def OnStreamDropdown(self, event=None):
         """分支下拉框点击事件"""
@@ -95,13 +112,19 @@ class AppCallbacks:
         if len(path_array) >= 2:
             self.select_stream_path = f"//{path_array[0]}/{path_array[1]}/{self.ui.p4_stream_var.get()}"
         self._UpdateWorkspaceFromCache()
+        self._UpdateWorkspacePreview()
 
     def OnApply(self):
         """一键切换按钮点击事件"""
         self.ui.ClearLog()
 
+        # 检查工作区标识
+        tag = self.ui.workspace_tag_var.get().strip()
+        if not tag:
+            messagebox.showwarning("缺少配置", "请先设置工作区标识")
+            return
+
         target_workspace = self.ui.p4_workspace_var.get()
-        client_name = self.ui.p4_client_var.get()
 
         # 检查是否使用默认路径，需要用户确认
         if self.ui.workspace_is_default:
@@ -113,7 +136,7 @@ class AppCallbacks:
 
         # 检查未提交的修改
         self.ui.LogMessage("正在检查未提交的修改...")
-        opened_files = GetOpenedFiles(self.p4, client_name)
+        opened_files = GetOpenedFiles(self.p4, self.cur_client)
         if opened_files:
             count = len(opened_files)
             files_preview = "\n".join([f.get('depotFile', '') for f in opened_files[:5] if isinstance(f, dict)])
@@ -139,11 +162,11 @@ class AppCallbacks:
             self.ui.LogMessage(f"已创建目录: {target_workspace}")
 
         self.ui.LogMessage("检查通过，开始切换...")
-        self.ui.LogMessage(f"切换客户端为：{client_name}")
+        self.ui.LogMessage(f"切换客户端为：{self.cur_client}")
         self.ui.LogMessage(f"切换流路径：{self.select_stream_path}")
         self.ui.LogMessage(f"切换工作区路径：{target_workspace}")
 
-        SwitchClientStream(self.p4, client_name, self.select_stream_path, target_workspace)
+        SwitchClientStream(self.p4, self.cur_client, self.select_stream_path, target_workspace)
 
         # 保存工作区目录和离线标记到缓存
         is_offline = self.ui.offline_var.get()
@@ -160,12 +183,12 @@ class AppCallbacks:
         p4_thread = None
         try:
             self.ui.UpdateOperationLabel("正在连接服务器...")
-            command_target = f"//{self.ui.p4_client_var.get()}/..."
+            command_target = f"//{self.cur_client}/..."
             workspace_root = self.ui.p4_workspace_var.get()
 
             p4_thread = P4()
             p4_thread.connect()
-            p4_thread.client = self.ui.p4_client_var.get()
+            p4_thread.client = self.cur_client
 
             # 步骤1: sync -k 更新 have list
             self.ui.UpdateOperationLabel("正在更新文件索引...")
@@ -290,6 +313,24 @@ class AppCallbacks:
             self.ui.SetWorkspaceSource(is_cached=False)
             self.ui.LogMessage(f"该流没有缓存记录，使用默认路径: {default_path}")
 
+    def _UpdateWorkspacePreview(self):
+        """更新工作区名称预览"""
+        tag = self.ui.workspace_tag_var.get().strip()
+        project = self.ui.p4_project_var.get()
+        stream = self.ui.p4_stream_var.get()
+        self.ui.UpdateWorkspacePreview(tag, project, stream)
+
+    def _UpdateAvailableWorkspace(self):
+        """更新可用工作区显示"""
+        try:
+            max_cnt = max(1, self.ui.max_workspace_cnt_var.get())
+        except Exception:
+            max_cnt = self.global_config.GetMaxWorkspaceCnt()
+        # TODO: 计算已使用的工作区数量
+        used = 0
+        available = max_cnt - used
+        self.ui.UpdateAvailableWorkspace(available, max_cnt)
+
     def OnWorkspaceClick(self, event=None):
         """工作区目录点击事件，打开目录选择对话框"""
         cur_path = self.ui.p4_workspace_var.get()
@@ -302,7 +343,7 @@ class AppCallbacks:
 
     def OnOpenP4V(self):
         """打开 P4V 按钮点击事件"""
-        LaunchP4V(self.p4.port, self.p4.user, self.ui.p4_client_var.get())
+        LaunchP4V(self.p4.port, self.p4.user, self.cur_client)
         self.ui.LogMessage("正在启动 P4V...")
 
     def OnOfflineChanged(self):
@@ -326,8 +367,7 @@ class AppCallbacks:
         self.default_project = self.ui.p4_project_var.get()
         self.default_stream = self.ui.p4_stream_var.get()
 
-        cur_client = self.ui.p4_client_var.get()
-        client_info = GetClientInfo(self.p4, cur_client)
+        client_info = GetClientInfo(self.p4, self.cur_client)
         if client_info:
             self.default_stream_path = client_info.get('Stream', '')
             workspace_root = client_info.get('Root', '')
@@ -340,6 +380,23 @@ class AppCallbacks:
 
         self._UpdateWorkspaceFromCache()
 
-    def Initialize(self):
+    def Initialize(self, client_name: str):
         """初始化回调状态"""
-        self.OnClientSelected()
+        self.cur_client = client_name
+        self.workspace_cache = WorkspaceCache(client_name)
+
+        # 加载全局配置到 UI
+        self.ui.workspace_tag_var.set(self.global_config.GetWorkspaceTag())
+        self.ui.max_workspace_cnt_var.set(self.global_config.GetMaxWorkspaceCnt())
+
+        # 初始化客户端状态
+        client_info = GetClientInfo(self.p4, client_name)
+        if client_info:
+            self.select_stream_path = client_info.get('Stream', '')
+            parsed = ParseStreamPath(self.select_stream_path)
+            self.ui.p4_project_var.set(parsed[0])
+            self.ui.p4_stream_var.set(parsed[1])
+
+        self._ResetDefaultVars()
+        self._UpdateWorkspacePreview()
+        self._UpdateAvailableWorkspace()
