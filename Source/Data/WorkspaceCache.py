@@ -181,3 +181,16 @@ class WorkspaceCache:
             Entry["offline"] = Offline
             self.cache[StreamPath] = Entry
             self._Save()
+
+    def SetNeedSync(self, StreamPath: str, NeedSync: bool):
+        """设置流是否需要同步"""
+        Entry = self._GetEntry(StreamPath)
+        if Entry:
+            Entry["need_sync"] = NeedSync
+            self.cache[StreamPath] = Entry
+            self._Save()
+
+    def GetNeedSync(self, StreamPath: str) -> bool:
+        """获取流是否需要同步，默认 False"""
+        Entry = self._GetEntry(StreamPath)
+        return Entry.get("need_sync", False) if Entry else False

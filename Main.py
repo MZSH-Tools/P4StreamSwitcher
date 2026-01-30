@@ -41,8 +41,9 @@ def main():
     except P4Exception as E:
         if 'User' in str(E) and "doesn't exist" in str(E):
             messagebox.showerror("用户设置错误", "请检查p4 set中P4USER")
-        messagebox.showerror("程序运行错误", "\n".join(P4Conn.errors))
-        UI.LogMessage("\n".join(P4Conn.errors))
+        ErrMsgs = P4Conn.errors if P4Conn.errors else [str(E)]
+        messagebox.showerror("程序运行错误", "\n".join(ErrMsgs))
+        UI.LogError("\n".join(ErrMsgs))
     finally:
         if P4Conn.connected():
             P4Conn.disconnect()

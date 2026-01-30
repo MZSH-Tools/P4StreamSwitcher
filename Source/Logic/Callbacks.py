@@ -12,7 +12,7 @@ from Source.Data.P4Core import (
     CreateStreamClient, ClientExists, DeleteClient, CreateP4ConfigFile
 )
 from Source.Data.WorkspaceCache import WorkspaceCache, GlobalConfig
-from Source.UI.UIComponents import AppUI
+from Source.UI.UIComponents import AppUI, LogLevel
 
 
 class AppCallbacks:
@@ -222,8 +222,8 @@ class AppCallbacks:
         TargetExists = ClientExists(self.p4, TargetClientName)
 
         if TargetExists:
-            # 目标工作区已存在，直接打开 P4V（最快）
-            self.ui.LogMessage(f"目标工作区 {TargetClientName} 已存在，直接打开 P4V...")
+            # 目标工作区已存在
+            self.ui.LogMessage(f"目标工作区 {TargetClientName} 已存在。")
 
             # 更新当前客户端和时间戳
             self.cur_client = TargetClientName
@@ -237,10 +237,18 @@ class AppCallbacks:
             self._ResetDefaultVars()
             self._UpdateUsedWorkspace()
 
-            # 直接打开 P4V
-            LaunchP4V(self.p4.port, self.p4.user, TargetClientName)
-            self.ui.LogMessage("正在启动 P4V...")
-            self.ui.UpdateStatus("就绪", "green")
+            # 检查是否需要同步
+            NeedSync = self.workspace_cache.GetNeedSync(self.select_stream_path) if self.workspace_cache else False
+            if NeedSync:
+                self.ui.LogWarning("检测到上次同步未完成，重新执行同步...")
+                self.ui.UpdateStatus("正在同步...", "orange", Blink=True)
+                self.ui.DisableUI()
+                threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
+            else:
+                # 直接打开 P4V
+                LaunchP4V(self.p4.port, self.p4.user, TargetClientName)
+                self.ui.LogMessage("正在启动 P4V...")
+                self.ui.UpdateStatus("就绪", "green")
             return
 
         # === 以下是创建新工作区的逻辑 ===
@@ -325,9 +333,10 @@ class AppCallbacks:
         self.p4.client = TargetClientName
         self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
 
-        # 保存工作区目录和离线标记到缓存
+        # 保存工作区目录和离线标记到缓存，并设置需要同步标记
         if self.workspace_cache:
             self.workspace_cache.Set(self.select_stream_path, TargetWorkspace, IsOffline)
+            self.workspace_cache.SetNeedSync(self.select_stream_path, True)
 
         self._ResetDefaultVars()
         self._UpdateUsedWorkspace()
@@ -442,10 +451,11 @@ class AppCallbacks:
             self.ui.UpdateOperationLabel("操作已完成。")
 
         except P4Exception as E:
-            self.ui.LogMessage("同步操作中发生错误：" + "\n".join(E.errors))
+            ErrMsgs = E.errors if E.errors else [str(E)]
+            self.ui.LogError("同步操作中发生错误：" + "\n".join(ErrMsgs))
             HasError = True
         except Exception as E:
-            self.ui.LogMessage(f"操作中发生错误：{E}")
+            self.ui.LogError(f"操作中发生错误：{E}")
             HasError = True
         else:
             HasError = False
@@ -460,8 +470,11 @@ class AppCallbacks:
         self.ui.EnableUI()
         if HasError:
             self.ui.UpdateStatus("错误", "red")
-            self.ui.LogMessage("操作完成，但有错误发生。")
+            self.ui.LogError("操作完成，但有错误发生。")
         else:
+            # 同步成功，清除 NeedSync 标记
+            if self.workspace_cache and self.select_stream_path:
+                self.workspace_cache.SetNeedSync(self.select_stream_path, False)
             self.ui.UpdateStatus("就绪", "green")
             self.ui.LogMessage("操作已完成。")
             # 打开 P4V

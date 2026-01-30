@@ -1,5 +1,13 @@
 import tkinter as tk
 from tkinter import ttk
+from datetime import datetime
+
+
+class LogLevel:
+    """日志级别常量"""
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
 
 
 class AppUI:
@@ -151,6 +159,11 @@ class AppUI:
         self.log_text = tk.Text(LogFrame, height=10, state='disabled')
         self.log_text.grid(row=0, column=0, sticky='nsew')
 
+        # 配置日志级别颜色标签
+        self.log_text.tag_configure(LogLevel.INFO, foreground='black')
+        self.log_text.tag_configure(LogLevel.WARNING, foreground='orange')
+        self.log_text.tag_configure(LogLevel.ERROR, foreground='red')
+
         Scrollbar = tk.Scrollbar(LogFrame, command=self.log_text.yview)
         Scrollbar.grid(row=0, column=1, sticky='ns')
         self.log_text.configure(yscrollcommand=Scrollbar.set)
@@ -181,14 +194,29 @@ class AppUI:
         self.used_workspace_label = tk.Label(StatusFrame, textvariable=self.available_workspace_var, anchor='e')
         self.used_workspace_label.grid(row=0, column=3, sticky='e')
 
-    def LogMessage(self, Msg: str):
+    def LogMessage(self, Msg: str, Level: str = LogLevel.INFO, ShowTime: bool = True):
         """在日志区添加消息"""
         def Append():
             self.log_text.configure(state='normal')
-            self.log_text.insert('end', Msg + '\n')
+            if ShowTime:
+                TimeStr = datetime.now().strftime("[%H:%M:%S] ")
+                self.log_text.insert('end', TimeStr)
+            self.log_text.insert('end', Msg + '\n', Level)
             self.log_text.configure(state='disabled')
             self.log_text.see('end')
         self.root.after(0, Append)
+
+    def LogInfo(self, Msg: str):
+        """记录信息级别日志"""
+        self.LogMessage(Msg, LogLevel.INFO)
+
+    def LogWarning(self, Msg: str):
+        """记录警告级别日志"""
+        self.LogMessage(Msg, LogLevel.WARNING)
+
+    def LogError(self, Msg: str):
+        """记录错误级别日志"""
+        self.LogMessage(Msg, LogLevel.ERROR)
 
     def ClearLog(self):
         """清空日志"""
