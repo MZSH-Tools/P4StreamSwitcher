@@ -570,12 +570,7 @@ class AppCallbacks:
         if ClientInfo:
             self.default_stream_path = ClientInfo.get('Stream', '')
             WorkspaceRoot = ClientInfo.get('Root', '')
-            WorkspaceArray = WorkspaceRoot.split('\\')[:-1]
-            if len(WorkspaceArray) > 1:
-                WorkspaceArray.insert(1, '\\')
-                self.default_workspace_root = os.path.join(*WorkspaceArray)
-            else:
-                self.default_workspace_root = WorkspaceRoot
+            self.default_workspace_root = os.path.dirname(WorkspaceRoot)
 
         self._UpdateWorkspaceFromCache()
 
