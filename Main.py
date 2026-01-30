@@ -2,14 +2,28 @@ import sys
 import os
 import shutil
 import tempfile
+import ctypes
 import tkinter as tk
 from tkinter import messagebox
 from P4 import P4, P4Exception
 
 # PyInstaller 打包后隐藏控制台窗口（解决 console=False 的 bootloader bug）
 if getattr(sys, 'frozen', False):
-    import ctypes
     ctypes.windll.user32.ShowWindow(ctypes.windll.kernel32.GetConsoleWindow(), 0)
+
+
+def CheckSingleInstance() -> bool:
+    """检查是否已有实例运行，返回 True 表示是唯一实例"""
+    MutexName = "P4StreamSwitcher_SingleInstance_Mutex"
+    # 尝试创建命名互斥锁
+    Mutex = ctypes.windll.kernel32.CreateMutexW(None, False, MutexName)
+    LastError = ctypes.windll.kernel32.GetLastError()
+    # ERROR_ALREADY_EXISTS = 183
+    if LastError == 183:
+        ctypes.windll.kernel32.CloseHandle(Mutex)
+        return False
+    # 保持互斥锁句柄，程序退出时自动释放
+    return True
 
 from Source.UI.UIComponents import AppUI
 from Source.Logic.Callbacks import AppCallbacks
@@ -38,6 +52,11 @@ def CleanupMeiDirs():
 
 def main():
     CleanupMeiDirs()  # 清理旧的临时目录
+
+    # 单实例检查
+    if not CheckSingleInstance():
+        messagebox.showerror("程序已运行", "P4StreamSwitcher 已有一个实例正在运行。")
+        sys.exit()
 
     Root = tk.Tk()
     UI = AppUI(Root)
