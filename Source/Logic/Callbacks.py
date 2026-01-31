@@ -4,7 +4,7 @@ from tkinter import messagebox, filedialog
 from P4 import P4, P4Exception
 
 from Source.Data.P4Core import (
-    GetClientInfo, GetMainlineProjects, GetProjectStreams, ParseStreamPath,
+    GetClientInfo, GetClientRoot, GetMainlineProjects, GetProjectStreams, ParseStreamPath,
     GetAllStreams, GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
     IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
@@ -492,17 +492,34 @@ class AppCallbacks:
             self.ui.LogMessage("正在启动 P4V...")
 
     def _UpdateWorkspaceFromCache(self):
-        """根据缓存或默认值更新工作区目录和离线状态"""
-        Cached = self.global_config.GetStreamWorkspace(self.select_stream_path)
+        """根据工作区、缓存或默认值更新工作区目录和离线状态"""
         OfflineFlag = self.global_config.GetStreamOffline(self.select_stream_path)
-
         self.ui.offline_var.set(OfflineFlag)
 
+        # 构建目标工作区名称
+        Tag = self.ui.workspace_tag_var.get().strip()
+        Project = self.ui.p4_project_var.get()
+        Stream = self.ui.p4_stream_var.get()
+        TargetClientName = f"{Tag}_{Project}_{Stream}" if Tag else ""
+
+        # 优先从已存在的工作区获取目录
+        if TargetClientName and ClientExists(self.p4, TargetClientName):
+            Root = GetClientRoot(self.p4, TargetClientName)
+            if Root:
+                self.ui.p4_workspace_var.set(Root)
+                self.ui.SetWorkspaceSource(is_cached=True)
+                # 更新缓存（保留 offline 和 need_sync）
+                self.global_config.SetStreamCache(self.select_stream_path, Root)
+                return
+
+        # 其次从缓存获取
+        Cached = self.global_config.GetStreamWorkspace(self.select_stream_path)
         if Cached:
             self.ui.p4_workspace_var.set(Cached)
             self.ui.SetWorkspaceSource(is_cached=True)
         else:
-            DefaultPath = os.path.join(self.default_workspace_root, self.ui.p4_project_var.get())
+            # 最后使用默认路径
+            DefaultPath = os.path.join(self.default_workspace_root, Project)
             self.ui.p4_workspace_var.set(DefaultPath)
             self.ui.SetWorkspaceSource(is_cached=False)
             self.ui.LogMessage(f"该流没有缓存记录，使用默认路径: {DefaultPath}")

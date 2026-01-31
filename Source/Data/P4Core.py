@@ -78,6 +78,19 @@ def GetClientInfo(P4Conn: P4, ClientName: str):
     return None
 
 
+def GetClientRoot(P4Conn: P4, ClientName: str) -> str | None:
+    """获取客户端的 Root 目录"""
+    OldClient = P4Conn.client
+    try:
+        P4Conn.client = ClientName
+        Spec = P4Conn.fetch_client()
+        return Spec.get('Root')
+    except Exception:
+        return None
+    finally:
+        P4Conn.client = OldClient
+
+
 def CheckTagConflict(P4Conn: P4, Tag: str) -> list:
     """检查标识是否被其他主机使用，返回冲突的客户端列表"""
     if not Tag:
