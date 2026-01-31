@@ -182,6 +182,33 @@ def ClientExists(P4Conn: P4, ClientName: str) -> bool:
     return False
 
 
+def UpdateClientRmdir(P4Conn: P4, ClientName: str, AutoRmdir: bool):
+    """更新客户端的 rmdir 选项"""
+    OldClient = P4Conn.client
+    try:
+        P4Conn.client = ClientName
+        Spec = P4Conn.fetch_client()
+        Options = Spec.get('Options', '')
+
+        if AutoRmdir:
+            # 移除 normdir，确保 rmdir 存在
+            Options = Options.replace('normdir', '').strip()
+            Options = ' '.join(Options.split())
+            if 'rmdir' not in Options:
+                Options = Options + ' rmdir' if Options else 'rmdir'
+        else:
+            # 移除 rmdir，确保 normdir 存在
+            Options = Options.replace('rmdir', '').strip()
+            Options = ' '.join(Options.split())
+            if 'normdir' not in Options:
+                Options = Options + ' normdir' if Options else 'normdir'
+
+        Spec['Options'] = Options
+        P4Conn.save_client(Spec)
+    finally:
+        P4Conn.client = OldClient
+
+
 def DeleteClient(P4Conn: P4, ClientName: str):
     """删除客户端"""
     P4Conn.run('client', '-d', ClientName)

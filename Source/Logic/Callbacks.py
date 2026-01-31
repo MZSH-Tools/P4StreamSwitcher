@@ -9,9 +9,9 @@ from Source.Data.P4Core import (
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
     IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
     CheckTagConflict, GetLocalClientsWithTag, RenameClient,
-    CreateStreamClient, ClientExists, DeleteClient, CreateP4ConfigFile
+    CreateStreamClient, ClientExists, DeleteClient, CreateP4ConfigFile, UpdateClientRmdir
 )
-from Source.Data.WorkspaceCache import WorkspaceCache, GlobalConfig
+from Source.Data.WorkspaceCache import GlobalConfig
 from Source.UI.UIComponents import AppUI, LogLevel
 
 
@@ -31,7 +31,6 @@ class AppCallbacks:
         self.default_stream = ""
         self.default_workspace_root = ""
         self.default_stream_path = ""
-        self.workspace_cache = None
         self.cur_client = ""
         self.saved_tag = ""  # 已保存的标识
 
@@ -154,8 +153,21 @@ class AppCallbacks:
         self.global_config.SetCreateP4Config(self.ui.create_p4config_var.get())
 
     def OnAutoRmdirChanged(self):
-        """自动删除空文件夹选项改变"""
-        self.global_config.SetAutoRmdir(self.ui.auto_rmdir_var.get())
+        """自动删除空文件夹选项改变，同步应用到所有本地工作区"""
+        AutoRmdir = self.ui.auto_rmdir_var.get()
+        self.global_config.SetAutoRmdir(AutoRmdir)
+
+        # 获取当前标识的所有本地工作区并更新
+        Tag = self.ui.workspace_tag_var.get().strip()
+        if Tag:
+            try:
+                Clients = GetLocalClientsWithTag(self.p4, Tag)
+                for ClientName in Clients:
+                    UpdateClientRmdir(self.p4, ClientName, AutoRmdir)
+                if Clients:
+                    self.ui.LogMessage(f"已更新 {len(Clients)} 个工作区的 rmdir 选项。")
+            except Exception as E:
+                self.ui.LogMessage(f"更新工作区选项时出错: {E}")
 
     def OnProjectDropdown(self, event=None):
         """项目下拉框点击事件"""
@@ -231,14 +243,13 @@ class AppCallbacks:
             self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
 
             # 保存工作区目录到缓存
-            if self.workspace_cache:
-                self.workspace_cache.Set(self.select_stream_path, TargetWorkspace, IsOffline)
+            self.global_config.SetStreamCache(self.select_stream_path, TargetWorkspace, IsOffline)
 
             self._ResetDefaultVars()
             self._UpdateUsedWorkspace()
 
             # 检查是否需要同步
-            NeedSync = self.workspace_cache.GetNeedSync(self.select_stream_path) if self.workspace_cache else False
+            NeedSync = self.global_config.GetStreamNeedSync(self.select_stream_path)
             if NeedSync:
                 self.ui.LogWarning("检测到上次同步未完成，重新执行同步...")
                 self.ui.UpdateStatus("正在同步...", "orange", Blink=True)
@@ -334,9 +345,8 @@ class AppCallbacks:
         self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
 
         # 保存工作区目录和离线标记到缓存，并设置需要同步标记
-        if self.workspace_cache:
-            self.workspace_cache.Set(self.select_stream_path, TargetWorkspace, IsOffline)
-            self.workspace_cache.SetNeedSync(self.select_stream_path, True)
+        self.global_config.SetStreamCache(self.select_stream_path, TargetWorkspace, IsOffline)
+        self.global_config.SetStreamNeedSync(self.select_stream_path, True)
 
         self._ResetDefaultVars()
         self._UpdateUsedWorkspace()
@@ -473,8 +483,8 @@ class AppCallbacks:
             self.ui.LogError("操作完成，但有错误发生。")
         else:
             # 同步成功，清除 NeedSync 标记
-            if self.workspace_cache and self.select_stream_path:
-                self.workspace_cache.SetNeedSync(self.select_stream_path, False)
+            if self.select_stream_path:
+                self.global_config.SetStreamNeedSync(self.select_stream_path, False)
             self.ui.UpdateStatus("就绪", "green")
             self.ui.LogMessage("操作已完成。")
             # 打开 P4V
@@ -483,8 +493,8 @@ class AppCallbacks:
 
     def _UpdateWorkspaceFromCache(self):
         """根据缓存或默认值更新工作区目录和离线状态"""
-        Cached = self.workspace_cache.Get(self.select_stream_path) if self.workspace_cache else None
-        OfflineFlag = self.workspace_cache.GetOffline(self.select_stream_path) if self.workspace_cache else False
+        Cached = self.global_config.GetStreamWorkspace(self.select_stream_path)
+        OfflineFlag = self.global_config.GetStreamOffline(self.select_stream_path)
 
         self.ui.offline_var.set(OfflineFlag)
 
@@ -547,8 +557,8 @@ class AppCallbacks:
 
     def OnOfflineChanged(self):
         """离线复选框状态改变事件，保存到缓存"""
-        if self.workspace_cache and self.select_stream_path:
-            self.workspace_cache.SetOffline(self.select_stream_path, self.ui.offline_var.get())
+        if self.select_stream_path:
+            self.global_config.SetStreamOffline(self.select_stream_path, self.ui.offline_var.get())
 
     def _FindExistingParent(self, Path: str) -> str:
         """向上查找存在的父目录"""
@@ -577,7 +587,6 @@ class AppCallbacks:
     def Initialize(self, client_name: str):
         """初始化回调状态"""
         self.cur_client = client_name
-        self.workspace_cache = WorkspaceCache(client_name)
 
         # 加载全局配置到 UI
         self.saved_tag = self.global_config.GetWorkspaceTag()
