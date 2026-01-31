@@ -245,6 +245,11 @@ class AppCallbacks:
             # 保存工作区目录到缓存
             self.global_config.SetStreamCache(self.select_stream_path, TargetWorkspace, IsOffline)
 
+            # 更新或创建 P4CONFIG 文件
+            if self.global_config.GetCreateP4Config():
+                CreateP4ConfigFile(TargetWorkspace, TargetClientName, self.p4.port, self.p4.user)
+                self.ui.LogMessage(f"已更新 .p4config 文件: {TargetWorkspace}")
+
             self._ResetDefaultVars()
             self._UpdateUsedWorkspace()
 
