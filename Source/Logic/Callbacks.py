@@ -9,7 +9,8 @@ from Source.Data.P4Core import (
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
     IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
     CheckTagConflict, GetLocalClientsWithTag, RenameClient,
-    CreateStreamClient, ClientExists, DeleteClient, CreateP4ConfigFile, UpdateClientRmdir
+    CreateStreamClient, ClientExists, DeleteClient, CreateP4ConfigFile, UpdateClientRmdir,
+    UpdateClientRoot
 )
 from Source.Data.WorkspaceCache import GlobalConfig
 from Source.UI.UIComponents import AppUI, LogLevel
@@ -234,18 +235,49 @@ class AppCallbacks:
         TargetExists = ClientExists(self.P4, TargetClientName)
 
         if TargetExists:
-            # 目标工作区已存在
             self.UI.LogMessage(f"目标工作区 {TargetClientName} 已存在。")
+
+            # 获取服务器端 Root，与 UI 选择做 3-way 比较
+            ServerRoot = GetClientRoot(self.P4, TargetClientName)
+            if not ServerRoot:
+                self.UI.LogMessage(f"无法获取工作区 {TargetClientName} 的 Root 目录", LogLevel.ERROR)
+                return
+
+            NeedSync = self.GlobalCfg.GetStreamNeedSync(self.SelectStreamPath)
+
+            if TargetWorkspace != ServerRoot:
+                if self.UI.WorkspaceIsManual:
+                    # 用户手动修改了目录：更新服务器 Root，触发同步
+                    self.UI.LogMessage(f"检测到手动修改工作区目录: {ServerRoot} -> {TargetWorkspace}")
+
+                    # 检查目录是否存在
+                    if not os.path.isdir(TargetWorkspace):
+                        Result = messagebox.askyesno("目录不存在",
+                            f"目录 {TargetWorkspace} 不存在。\n\n是否创建该目录并继续切换？")
+                        if not Result:
+                            self.UI.LogMessage("用户取消操作。")
+                            return
+                        os.makedirs(TargetWorkspace, exist_ok=True)
+                        self.UI.LogMessage(f"已创建目录: {TargetWorkspace}")
+
+                    UpdateClientRoot(self.P4, TargetClientName, TargetWorkspace)
+                    self.UI.LogMessage(f"已更新服务器工作区 Root: {TargetWorkspace}")
+                    NeedSync = True
+                else:
+                    # 非手动修改，以服务器为准
+                    self.UI.LogMessage(f"工作区目录与服务器不一致，使用服务器值: {ServerRoot}")
+                    TargetWorkspace = ServerRoot
+                    self.UI.P4WorkspaceVar.set(ServerRoot)
 
             # 更新当前客户端和时间戳
             self.CurClient = TargetClientName
             self.P4.client = TargetClientName
             self.GlobalCfg.UpdateWorkspaceTimestamp(TargetClientName)
 
-            # 保存工作区目录到缓存
+            # 保存到缓存（此时 TargetWorkspace 已与服务器一致）
             self.GlobalCfg.SetStreamCache(self.SelectStreamPath, TargetWorkspace, IsOffline)
 
-            # 更新或创建 P4CONFIG 文件
+            # P4CONFIG
             if self.GlobalCfg.GetCreateP4Config():
                 CreateP4ConfigFile(TargetWorkspace, TargetClientName, self.P4.port, self.P4.user)
                 self.UI.LogMessage(f"已更新 .p4config 文件: {TargetWorkspace}")
@@ -253,15 +285,13 @@ class AppCallbacks:
             self.ResetDefaultVars()
             self.UpdateUsedWorkspace()
 
-            # 检查是否需要同步
-            NeedSync = self.GlobalCfg.GetStreamNeedSync(self.SelectStreamPath)
             if NeedSync:
-                self.UI.LogWarning("检测到上次同步未完成，重新执行同步...")
+                self.GlobalCfg.SetStreamNeedSync(self.SelectStreamPath, True)
+                self.UI.LogWarning("检测到需要同步，执行同步流程...")
                 self.UI.UpdateStatus("正在同步...", "orange", Blink=True)
                 self.UI.DisableUI()
                 threading.Thread(target=self.RunSyncAndClean, args=(IsOffline,), daemon=True).start()
             else:
-                # 直接打开 P4V
                 LaunchP4V(self.P4.port, self.P4.user, TargetClientName)
                 self.UI.LogMessage("正在启动 P4V...")
                 self.UI.UpdateStatus("就绪", "green")

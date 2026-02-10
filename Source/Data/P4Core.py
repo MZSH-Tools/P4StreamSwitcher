@@ -222,6 +222,18 @@ def UpdateClientRmdir(P4Conn: P4, ClientName: str, AutoRmdir: bool):
         P4Conn.client = OldClient
 
 
+def UpdateClientRoot(P4Conn: P4, ClientName: str, NewRoot: str):
+    """更新客户端的 Root 目录"""
+    OldClient = P4Conn.client
+    try:
+        P4Conn.client = ClientName
+        Spec = P4Conn.fetch_client()
+        Spec['Root'] = NewRoot
+        P4Conn.save_client(Spec)
+    finally:
+        P4Conn.client = OldClient
+
+
 def DeleteClient(P4Conn: P4, ClientName: str):
     """删除客户端"""
     P4Conn.run('client', '-d', ClientName)
