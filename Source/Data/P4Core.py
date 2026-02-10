@@ -47,9 +47,9 @@ def GetMainlineProjects(P4Conn: P4):
     """获取所有主线类型的流项目"""
     Streams = P4Conn.run_streams()
     Projects = []
-    for S in Streams:
-        if S.get('Type', '') == 'mainline':
-            Parsed = ParseStreamPath(S.get('Stream', ''))
+    for Stream in Streams:
+        if Stream.get('Type', '') == 'mainline':
+            Parsed = ParseStreamPath(Stream.get('Stream', ''))
             Projects.append(Parsed[0])
     return Projects
 
@@ -58,8 +58,8 @@ def GetProjectStreams(P4Conn: P4, ProjectName: str):
     """获取指定项目下的所有流分支"""
     Streams = P4Conn.run_streams()
     Values = []
-    for S in Streams:
-        Parsed = ParseStreamPath(S.get('Stream', ''))
+    for Stream in Streams:
+        Parsed = ParseStreamPath(Stream.get('Stream', ''))
         if Parsed[0] == ProjectName:
             Values.append(Parsed[1])
     return Values
@@ -153,17 +153,17 @@ def GetOldestLocalClient(P4Conn: P4, Tag: str) -> str | None:
     if not Clients:
         return None
     # 按 Access 时间排序，返回最旧的
-    Clients.sort(key=lambda C: int(C.get('Access', '0')))
+    Clients.sort(key=lambda Client: int(Client.get('Access', '0')))
     return Clients[0].get('client')
 
 
 def CreateP4ConfigFile(WorkspaceRoot: str, ClientName: str, Server: str, User: str):
     """在工作区根目录创建 .p4config 文件"""
     ConfigPath = os.path.join(WorkspaceRoot, ".p4config")
-    with open(ConfigPath, 'w', encoding='utf-8') as F:
-        F.write(f"P4CLIENT={ClientName}\n")
-        F.write(f"P4PORT={Server}\n")
-        F.write(f"P4USER={User}\n")
+    with open(ConfigPath, 'w', encoding='utf-8') as File:
+        File.write(f"P4CLIENT={ClientName}\n")
+        File.write(f"P4PORT={Server}\n")
+        File.write(f"P4USER={User}\n")
 
 
 def CreateStreamClient(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str, AutoRmdir: bool = False):
@@ -249,8 +249,8 @@ def GetOpenedFiles(P4Conn: P4, ClientName: str) -> list:
     """获取指定客户端未提交的文件列表"""
     try:
         return P4Conn.run("opened", "-C", ClientName)
-    except P4Exception as E:
-        ErrStr = str(E).lower()
+    except P4Exception as Err:
+        ErrStr = str(Err).lower()
         if "not opened" in ErrStr or "no file(s)" in ErrStr:
             return []
         raise
@@ -271,8 +271,8 @@ def GetDifferentFiles(P4Conn: P4, CmdTarget: str) -> list:
     try:
         Result = P4Conn.run("diff", "-se", CmdTarget)
         return [Item.get('depotFile', '') for Item in Result if isinstance(Item, dict)]
-    except P4Exception as E:
-        ErrStr = str(E).lower()
+    except P4Exception as Err:
+        ErrStr = str(Err).lower()
         if "no file(s)" in ErrStr or "not on client" in ErrStr:
             return []
         raise
@@ -283,8 +283,8 @@ def GetMissingFiles(P4Conn: P4, CmdTarget: str) -> list:
     try:
         Result = P4Conn.run("diff", "-sd", CmdTarget)
         return [Item.get('depotFile', '') for Item in Result if isinstance(Item, dict)]
-    except P4Exception as E:
-        ErrStr = str(E).lower()
+    except P4Exception as Err:
+        ErrStr = str(Err).lower()
         if "no file(s)" in ErrStr or "not on client" in ErrStr:
             return []
         raise
@@ -331,8 +331,8 @@ class P4IgnoreParser:
         P4IgnorePath = os.path.join(self.WorkspaceRoot, ".p4ignore")
         if not os.path.exists(P4IgnorePath):
             return
-        with open(P4IgnorePath, 'r', encoding='utf-8', errors='ignore') as F:
-            for Line in F:
+        with open(P4IgnorePath, 'r', encoding='utf-8', errors='ignore') as File:
+            for Line in File:
                 Line = Line.strip()
                 if not Line or Line.startswith('#'):
                     continue
@@ -370,7 +370,7 @@ def DeleteObsoleteFiles(WorkspaceRoot: str, HavePaths: set, IgnoreParser: P4Igno
     """删除多余的版本控制文件（本地有，have list 没有，且不在 .p4ignore 中）"""
     DeletedCnt = 0
     for Root, Dirs, Files in os.walk(WorkspaceRoot):
-        Dirs[:] = [D for D in Dirs if not IgnoreParser.ShouldIgnore(os.path.join(Root, D))]
+        Dirs[:] = [Dir for Dir in Dirs if not IgnoreParser.ShouldIgnore(os.path.join(Root, Dir))]
         for File in Files:
             FilePath = os.path.join(Root, File)
             NormalizedPath = os.path.normcase(os.path.normpath(FilePath))
@@ -384,9 +384,9 @@ def DeleteObsoleteFiles(WorkspaceRoot: str, HavePaths: set, IgnoreParser: P4Igno
                 DeletedCnt += 1
                 if LogCallback:
                     LogCallback(f"删除: {FilePath}")
-            except Exception as E:
+            except Exception as Err:
                 if LogCallback:
-                    LogCallback(f"删除失败: {FilePath} - {E}")
+                    LogCallback(f"删除失败: {FilePath} - {Err}")
     return DeletedCnt
 
 
@@ -453,8 +453,8 @@ def RunReconcile(P4Conn: P4, CmdTarget: str, Parallel: int = 8) -> dict:
                 Action = Item.get("action", "")
                 if Action in Result:
                     Result[Action] += 1
-    except P4Exception as E:
-        ErrStr = str(E).lower()
+    except P4Exception as Err:
+        ErrStr = str(Err).lower()
         if "no file(s)" not in ErrStr:
             raise
     return Result

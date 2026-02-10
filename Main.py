@@ -87,10 +87,10 @@ def main():
         # 启动主循环
         Root.mainloop()
 
-    except P4Exception as E:
-        if 'User' in str(E) and "doesn't exist" in str(E):
+    except P4Exception as Err:
+        if 'User' in str(Err) and "doesn't exist" in str(Err):
             messagebox.showerror("用户设置错误", "请检查p4 set中P4USER")
-        ErrMsgs = P4Conn.errors if P4Conn.errors else [str(E)]
+        ErrMsgs = P4Conn.errors if P4Conn.errors else [str(Err)]
         messagebox.showerror("程序运行错误", "\n".join(ErrMsgs))
         UI.LogError("\n".join(ErrMsgs))
     finally:

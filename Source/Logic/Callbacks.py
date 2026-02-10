@@ -18,9 +18,9 @@ from Source.UI.UIComponents import AppUI, LogLevel
 class AppCallbacks:
     """应用回调管理类"""
 
-    def __init__(self, p4: P4, ui: AppUI):
-        self.P4 = p4
-        self.UI = ui
+    def __init__(self, P4Conn: P4, UI: AppUI):
+        self.P4 = P4Conn
+        self.UI = UI
 
         # 全局配置
         self.GlobalCfg = GlobalConfig()
@@ -101,8 +101,8 @@ class AppCallbacks:
             if Conflicts:
                 messagebox.showwarning("标识冲突", f"该标识已被其他主机使用：\n{', '.join(Conflicts[:5])}")
                 return
-        except Exception as E:
-            messagebox.showerror("检查失败", f"检查标识时发生错误：{E}")
+        except Exception as Err:
+            messagebox.showerror("检查失败", f"检查标识时发生错误：{Err}")
             return
 
         # 重命名旧标识的本地工作区
@@ -123,10 +123,10 @@ class AppCallbacks:
                                 # 迁移时间戳
                                 self.GlobalCfg.RenameWorkspaceTimestamp(OldName, NewName)
                                 self.UI.LogMessage(f"已重命名: {OldName} -> {NewName}")
-                            except Exception as E:
-                                self.UI.LogMessage(f"重命名失败 {OldName}: {E}")
-            except Exception as E:
-                self.UI.LogMessage(f"获取旧工作区列表失败: {E}")
+                            except Exception as Err:
+                                self.UI.LogMessage(f"重命名失败 {OldName}: {Err}")
+            except Exception as Err:
+                self.UI.LogMessage(f"获取旧工作区列表失败: {Err}")
 
         # 保存配置
         self.GlobalCfg.SetWorkspaceTag(NewTag)
@@ -166,8 +166,8 @@ class AppCallbacks:
                     UpdateClientRmdir(self.P4, ClientName, AutoRmdir)
                 if Clients:
                     self.UI.LogMessage(f"已更新 {len(Clients)} 个工作区的 rmdir 选项。")
-            except Exception as E:
-                self.UI.LogMessage(f"更新工作区选项时出错: {E}")
+            except Exception as Err:
+                self.UI.LogMessage(f"更新工作区选项时出错: {Err}")
 
     def OnProjectDropdown(self, event=None):
         """项目下拉框点击事件"""
@@ -181,12 +181,12 @@ class AppCallbacks:
             self.SelectStreamPath = self.DefaultStreamPath
         else:
             Streams = GetAllStreams(self.P4)
-            for S in Streams:
-                if S.get('Type') == 'mainline':
-                    Parsed = ParseStreamPath(S.get('Stream', ''))
+            for Stream in Streams:
+                if Stream.get('Type') == 'mainline':
+                    Parsed = ParseStreamPath(Stream.get('Stream', ''))
                     if Parsed[0] == SelectProject:
                         self.UI.P4StreamVar.set(Parsed[1])
-                        self.SelectStreamPath = S.get('Stream', '')
+                        self.SelectStreamPath = Stream.get('Stream', '')
                         break
         self.UpdateWorkspaceFromCache()
         self.UpdateWorkspacePreview()
@@ -301,7 +301,7 @@ class AppCallbacks:
                 ErrMsg = f"无法删除工作区 {OldestClient}：\n\n"
                 if OpenedFiles:
                     Cnt = len(OpenedFiles)
-                    Preview = "\n".join([F.get('depotFile', '') for F in OpenedFiles[:5] if isinstance(F, dict)])
+                    Preview = "\n".join([File.get('depotFile', '') for File in OpenedFiles[:5] if isinstance(File, dict)])
                     ErrMsg += f"• 有 {Cnt} 个未提交文件：\n{Preview}\n\n"
                 if P4VRunning:
                     ErrMsg += "• P4V 正在运行中（可能正在使用该工作区）\n\n"
@@ -315,8 +315,8 @@ class AppCallbacks:
                 DeleteClient(self.P4, OldestClient)
                 self.GlobalCfg.RemoveWorkspaceTimestamp(OldestClient)
                 self.UI.LogMessage(f"已删除工作区: {OldestClient}")
-            except Exception as E:
-                messagebox.showerror("删除失败", f"删除工作区失败：{E}")
+            except Exception as Err:
+                messagebox.showerror("删除失败", f"删除工作区失败：{Err}")
                 return
 
         # 检查目录是否存在
@@ -379,8 +379,8 @@ class AppCallbacks:
             try:
                 RunSync(P4Thread, CmdTarget, FlushOnly=True)
                 self.UI.LogMessage("have list 更新完成。")
-            except P4Exception as E:
-                ErrStr = str(E).lower()
+            except P4Exception as Err:
+                ErrStr = str(Err).lower()
                 if "up-to-date" in ErrStr or "no file(s)" in ErrStr:
                     self.UI.LogMessage("have list 已是最新状态。")
                 else:
@@ -411,8 +411,8 @@ class AppCallbacks:
                 try:
                     HavePaths = GetHaveList(P4Thread, CmdTarget)
                     self.UI.LogMessage(f"have list 包含 {len(HavePaths)} 个文件。")
-                except P4Exception as E:
-                    ErrStr = str(E).lower()
+                except P4Exception as Err:
+                    ErrStr = str(Err).lower()
                     if "no file(s)" in ErrStr:
                         HavePaths = set()
                         self.UI.LogMessage("have list 为空。")
@@ -454,23 +454,23 @@ class AppCallbacks:
                     try:
                         SyncFiles(P4Thread, ProblemFiles, Handler, Parallel=8)
                         self.UI.LogMessage("文件同步完成。")
-                    except P4Exception as E:
-                        ErrStr = str(E).lower()
+                    except P4Exception as Err:
+                        ErrStr = str(Err).lower()
                         if "up-to-date" in ErrStr:
                             self.UI.LogMessage("文件已是最新状态。")
                         else:
-                            self.UI.LogMessage(f"同步部分文件时出错：{E}")
+                            self.UI.LogMessage(f"同步部分文件时出错：{Err}")
                 else:
                     self.UI.LogMessage("所有文件已是最新状态。")
 
             self.UI.UpdateOperationLabel("操作已完成。")
 
-        except P4Exception as E:
-            ErrMsgs = E.errors if E.errors else [str(E)]
+        except P4Exception as Err:
+            ErrMsgs = Err.errors if Err.errors else [str(Err)]
             self.UI.LogError("同步操作中发生错误：" + "\n".join(ErrMsgs))
             HasError = True
-        except Exception as E:
-            self.UI.LogError(f"操作中发生错误：{E}")
+        except Exception as Err:
+            self.UI.LogError(f"操作中发生错误：{Err}")
             HasError = True
         else:
             HasError = False
@@ -542,7 +542,7 @@ class AppCallbacks:
         # 检查工作区是否存在
         try:
             Clients = GetAllClients(self.P4)
-            Exists = any(C.get('client') == Name for C in Clients)
+            Exists = any(Client.get('client') == Name for Client in Clients)
         except Exception:
             Exists = False
         self.UI.UpdateWorkspacePreview(Name, Exists)
