@@ -19,77 +19,77 @@ class AppCallbacks:
     """应用回调管理类"""
 
     def __init__(self, p4: P4, ui: AppUI):
-        self.p4 = p4
-        self.ui = ui
+        self.P4 = p4
+        self.UI = ui
 
         # 全局配置
-        self.global_config = GlobalConfig()
+        self.GlobalCfg = GlobalConfig()
 
         # 状态变量
-        self.select_stream_path = ""
-        self.default_project = ""
-        self.default_stream = ""
-        self.default_workspace_root = ""
-        self.default_stream_path = ""
-        self.cur_client = ""
-        self.saved_tag = ""  # 已保存的标识
+        self.SelectStreamPath = ""
+        self.DefaultProject = ""
+        self.DefaultStream = ""
+        self.DefaultWorkspaceRoot = ""
+        self.DefaultStreamPath = ""
+        self.CurClient = ""
+        self.SavedTag = ""  # 已保存的标识
 
-        self._BindEvents()
+        self.BindEvents()
 
-    def _BindEvents(self):
+    def BindEvents(self):
         """绑定 UI 事件"""
-        self.ui.project_combo.bind("<Button-1>", self.OnProjectDropdown)
-        self.ui.project_combo.bind("<<ComboboxSelected>>", self.OnProjectSelected)
-        self.ui.stream_combo.bind("<Button-1>", self.OnStreamDropdown)
-        self.ui.stream_combo.bind("<<ComboboxSelected>>", self.OnStreamSelected)
-        self.ui.apply_button.configure(command=self.OnApply)
-        self.ui.workspace_entry.bind("<Button-1>", self.OnWorkspaceClick)
-        self.ui.offline_checkbox.configure(command=self.OnOfflineChanged)
+        self.UI.ProjectCombo.bind("<Button-1>", self.OnProjectDropdown)
+        self.UI.ProjectCombo.bind("<<ComboboxSelected>>", self.OnProjectSelected)
+        self.UI.StreamCombo.bind("<Button-1>", self.OnStreamDropdown)
+        self.UI.StreamCombo.bind("<<ComboboxSelected>>", self.OnStreamSelected)
+        self.UI.ApplyButton.configure(command=self.OnApply)
+        self.UI.WorkspaceEntry.bind("<Button-1>", self.OnWorkspaceClick)
+        self.UI.OfflineCheckbox.configure(command=self.OnOfflineChanged)
         # 通用配置事件
-        self.ui.workspace_tag_var.trace_add("write", self._OnTagVarChanged)
-        self.ui.tag_save_button.configure(command=self.OnTagSave)
-        self.ui.max_workspace_spinbox.bind("<FocusOut>", self.OnMaxWorkspaceCntChanged)
-        self.ui.max_workspace_cnt_var.trace_add("write", self._OnMaxCntVarChanged)
-        self.ui.create_p4config_checkbox.configure(command=self.OnCreateP4ConfigChanged)
-        self.ui.auto_rmdir_checkbox.configure(command=self.OnAutoRmdirChanged)
+        self.UI.WorkspaceTagVar.trace_add("write", self.OnTagVarChanged)
+        self.UI.TagSaveButton.configure(command=self.OnTagSave)
+        self.UI.MaxWorkspaceSpinbox.bind("<FocusOut>", self.OnMaxWorkspaceCntChanged)
+        self.UI.MaxWorkspaceCntVar.trace_add("write", self.OnMaxCntVarChanged)
+        self.UI.CreateP4ConfigCheckbox.configure(command=self.OnCreateP4ConfigChanged)
+        self.UI.AutoRmdirCheckbox.configure(command=self.OnAutoRmdirChanged)
 
-    def _OnTagVarChanged(self, *args):
+    def OnTagVarChanged(self, *args):
         """工作区标识变量改变时验证标识并更新状态"""
-        Tag = self.ui.workspace_tag_var.get().strip()
-        self._UpdateWorkspacePreview()
-        self._UpdateUsedWorkspace()
+        Tag = self.UI.WorkspaceTagVar.get().strip()
+        self.UpdateWorkspacePreview()
+        self.UpdateUsedWorkspace()
 
         # 空标识
         if not Tag:
-            self.ui.SetTagStatus(False, Empty=True)
+            self.UI.SetTagStatus(False, Empty=True)
             return
 
         # 检查是否与其他主机冲突
         try:
-            Conflicts = CheckTagConflict(self.p4, Tag)
+            Conflicts = CheckTagConflict(self.P4, Tag)
             if Conflicts:
-                self.ui.SetTagStatus(False)
+                self.UI.SetTagStatus(False)
                 return
         except Exception:
             pass
 
         # 标识有效
-        self.ui.SetTagStatus(True)
+        self.UI.SetTagStatus(True)
 
         # 如果标识与已保存的不同，启用保存按钮
-        if Tag != self.saved_tag:
-            self.ui.EnableTagSave(True)
+        if Tag != self.SavedTag:
+            self.UI.EnableTagSave(True)
         else:
-            self.ui.EnableTagSave(False)
+            self.UI.EnableTagSave(False)
 
-    def _OnMaxCntVarChanged(self, *args):
+    def OnMaxCntVarChanged(self, *args):
         """最大工作区数量变量改变时更新显示"""
-        self._UpdateUsedWorkspace()
+        self.UpdateUsedWorkspace()
 
     def OnTagSave(self):
         """保存标识并重命名本地旧标识工作区"""
-        NewTag = self.ui.workspace_tag_var.get().strip()
-        OldTag = self.saved_tag
+        NewTag = self.UI.WorkspaceTagVar.get().strip()
+        OldTag = self.SavedTag
 
         if not NewTag:
             messagebox.showwarning("标识无效", "工作区标识不能为空")
@@ -97,7 +97,7 @@ class AppCallbacks:
 
         # 检查冲突
         try:
-            Conflicts = CheckTagConflict(self.p4, NewTag)
+            Conflicts = CheckTagConflict(self.P4, NewTag)
             if Conflicts:
                 messagebox.showwarning("标识冲突", f"该标识已被其他主机使用：\n{', '.join(Conflicts[:5])}")
                 return
@@ -108,7 +108,7 @@ class AppCallbacks:
         # 重命名旧标识的本地工作区
         if OldTag:
             try:
-                OldClients = GetLocalClientsWithTag(self.p4, OldTag)
+                OldClients = GetLocalClientsWithTag(self.P4, OldTag)
                 if OldClients:
                     Result = messagebox.askyesno("重命名工作区",
                         f"检测到 {len(OldClients)} 个使用旧标识的本地工作区：\n"
@@ -119,181 +119,181 @@ class AppCallbacks:
                             Suffix = OldName[len(OldTag):]
                             NewName = f"{NewTag}{Suffix}"
                             try:
-                                RenameClient(self.p4, OldName, NewName)
+                                RenameClient(self.P4, OldName, NewName)
                                 # 迁移时间戳
-                                self.global_config.RenameWorkspaceTimestamp(OldName, NewName)
-                                self.ui.LogMessage(f"已重命名: {OldName} -> {NewName}")
+                                self.GlobalCfg.RenameWorkspaceTimestamp(OldName, NewName)
+                                self.UI.LogMessage(f"已重命名: {OldName} -> {NewName}")
                             except Exception as E:
-                                self.ui.LogMessage(f"重命名失败 {OldName}: {E}")
+                                self.UI.LogMessage(f"重命名失败 {OldName}: {E}")
             except Exception as E:
-                self.ui.LogMessage(f"获取旧工作区列表失败: {E}")
+                self.UI.LogMessage(f"获取旧工作区列表失败: {E}")
 
         # 保存配置
-        self.global_config.SetWorkspaceTag(NewTag)
-        self.saved_tag = NewTag
-        self.ui.EnableTagSave(False)
-        self.ui.LogMessage(f"工作区标识已保存: {NewTag}")
-        self._UpdateWorkspacePreview()
-        self._UpdateUsedWorkspace()
+        self.GlobalCfg.SetWorkspaceTag(NewTag)
+        self.SavedTag = NewTag
+        self.UI.EnableTagSave(False)
+        self.UI.LogMessage(f"工作区标识已保存: {NewTag}")
+        self.UpdateWorkspacePreview()
+        self.UpdateUsedWorkspace()
 
     def OnMaxWorkspaceCntChanged(self, event=None):
         """最大工作区数量改变，保存到缓存"""
         try:
-            Cnt = self.ui.max_workspace_cnt_var.get()
+            Cnt = self.UI.MaxWorkspaceCntVar.get()
             if Cnt < 1:
                 Cnt = 1
-                self.ui.max_workspace_cnt_var.set(Cnt)
-            self.global_config.SetMaxWorkspaceCnt(Cnt)
-            self._UpdateUsedWorkspace()
+                self.UI.MaxWorkspaceCntVar.set(Cnt)
+            self.GlobalCfg.SetMaxWorkspaceCnt(Cnt)
+            self.UpdateUsedWorkspace()
         except Exception:
             pass
 
     def OnCreateP4ConfigChanged(self):
         """创建 P4CONFIG 文件选项改变"""
-        self.global_config.SetCreateP4Config(self.ui.create_p4config_var.get())
+        self.GlobalCfg.SetCreateP4Config(self.UI.CreateP4ConfigVar.get())
 
     def OnAutoRmdirChanged(self):
         """自动删除空文件夹选项改变，同步应用到所有本地工作区"""
-        AutoRmdir = self.ui.auto_rmdir_var.get()
-        self.global_config.SetAutoRmdir(AutoRmdir)
+        AutoRmdir = self.UI.AutoRmdirVar.get()
+        self.GlobalCfg.SetAutoRmdir(AutoRmdir)
 
         # 获取当前标识的所有本地工作区并更新
-        Tag = self.ui.workspace_tag_var.get().strip()
+        Tag = self.UI.WorkspaceTagVar.get().strip()
         if Tag:
             try:
-                Clients = GetLocalClientsWithTag(self.p4, Tag)
+                Clients = GetLocalClientsWithTag(self.P4, Tag)
                 for ClientName in Clients:
-                    UpdateClientRmdir(self.p4, ClientName, AutoRmdir)
+                    UpdateClientRmdir(self.P4, ClientName, AutoRmdir)
                 if Clients:
-                    self.ui.LogMessage(f"已更新 {len(Clients)} 个工作区的 rmdir 选项。")
+                    self.UI.LogMessage(f"已更新 {len(Clients)} 个工作区的 rmdir 选项。")
             except Exception as E:
-                self.ui.LogMessage(f"更新工作区选项时出错: {E}")
+                self.UI.LogMessage(f"更新工作区选项时出错: {E}")
 
     def OnProjectDropdown(self, event=None):
         """项目下拉框点击事件"""
-        self.ui.project_combo['values'] = GetMainlineProjects(self.p4)
+        self.UI.ProjectCombo['values'] = GetMainlineProjects(self.P4)
 
     def OnProjectSelected(self, event=None):
         """项目选择事件"""
-        SelectProject = self.ui.p4_project_var.get()
-        if SelectProject == self.default_project:
-            self.ui.p4_stream_var.set(self.default_stream)
-            self.select_stream_path = self.default_stream_path
+        SelectProject = self.UI.P4ProjectVar.get()
+        if SelectProject == self.DefaultProject:
+            self.UI.P4StreamVar.set(self.DefaultStream)
+            self.SelectStreamPath = self.DefaultStreamPath
         else:
-            Streams = GetAllStreams(self.p4)
+            Streams = GetAllStreams(self.P4)
             for S in Streams:
                 if S.get('Type') == 'mainline':
                     Parsed = ParseStreamPath(S.get('Stream', ''))
                     if Parsed[0] == SelectProject:
-                        self.ui.p4_stream_var.set(Parsed[1])
-                        self.select_stream_path = S.get('Stream', '')
+                        self.UI.P4StreamVar.set(Parsed[1])
+                        self.SelectStreamPath = S.get('Stream', '')
                         break
-        self._UpdateWorkspaceFromCache()
-        self._UpdateWorkspacePreview()
+        self.UpdateWorkspaceFromCache()
+        self.UpdateWorkspacePreview()
 
     def OnStreamDropdown(self, event=None):
         """分支下拉框点击事件"""
-        CurProject = self.ui.p4_project_var.get()
-        self.ui.stream_combo['values'] = GetProjectStreams(self.p4, CurProject)
+        CurProject = self.UI.P4ProjectVar.get()
+        self.UI.StreamCombo['values'] = GetProjectStreams(self.P4, CurProject)
 
     def OnStreamSelected(self, event=None):
         """分支选择事件"""
-        if not self.select_stream_path:
+        if not self.SelectStreamPath:
             return
-        PathArray = self.select_stream_path.split('/')[-3:-1]
+        PathArray = self.SelectStreamPath.split('/')[-3:-1]
         if len(PathArray) >= 2:
-            self.select_stream_path = f"//{PathArray[0]}/{PathArray[1]}/{self.ui.p4_stream_var.get()}"
-        self._UpdateWorkspaceFromCache()
-        self._UpdateWorkspacePreview()
+            self.SelectStreamPath = f"//{PathArray[0]}/{PathArray[1]}/{self.UI.P4StreamVar.get()}"
+        self.UpdateWorkspaceFromCache()
+        self.UpdateWorkspacePreview()
 
     def OnApply(self):
         """一键切换按钮点击事件"""
-        self.ui.ClearLog()
+        self.UI.ClearLog()
 
         # 检查工作区标识
-        Tag = self.ui.workspace_tag_var.get().strip()
+        Tag = self.UI.WorkspaceTagVar.get().strip()
         if not Tag:
             messagebox.showwarning("缺少配置", "请先设置并保存工作区标识")
             return
 
         # 检查标识是否已保存
-        if Tag != self.saved_tag:
+        if Tag != self.SavedTag:
             messagebox.showwarning("标识未保存", "请先保存工作区标识")
             return
 
-        TargetWorkspace = self.ui.p4_workspace_var.get()
-        Project = self.ui.p4_project_var.get()
-        Stream = self.ui.p4_stream_var.get()
+        TargetWorkspace = self.UI.P4WorkspaceVar.get()
+        Project = self.UI.P4ProjectVar.get()
+        Stream = self.UI.P4StreamVar.get()
         TargetClientName = f"{Tag}_{Project}_{Stream}"
-        MaxCnt = max(1, self.ui.max_workspace_cnt_var.get())
+        MaxCnt = max(1, self.UI.MaxWorkspaceCntVar.get())
 
         # 获取离线标记
-        IsOffline = self.ui.offline_var.get()
+        IsOffline = self.UI.OfflineVar.get()
 
         # 检查目标工作区是否存在
-        TargetExists = ClientExists(self.p4, TargetClientName)
+        TargetExists = ClientExists(self.P4, TargetClientName)
 
         if TargetExists:
             # 目标工作区已存在
-            self.ui.LogMessage(f"目标工作区 {TargetClientName} 已存在。")
+            self.UI.LogMessage(f"目标工作区 {TargetClientName} 已存在。")
 
             # 更新当前客户端和时间戳
-            self.cur_client = TargetClientName
-            self.p4.client = TargetClientName
-            self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
+            self.CurClient = TargetClientName
+            self.P4.client = TargetClientName
+            self.GlobalCfg.UpdateWorkspaceTimestamp(TargetClientName)
 
             # 保存工作区目录到缓存
-            self.global_config.SetStreamCache(self.select_stream_path, TargetWorkspace, IsOffline)
+            self.GlobalCfg.SetStreamCache(self.SelectStreamPath, TargetWorkspace, IsOffline)
 
             # 更新或创建 P4CONFIG 文件
-            if self.global_config.GetCreateP4Config():
-                CreateP4ConfigFile(TargetWorkspace, TargetClientName, self.p4.port, self.p4.user)
-                self.ui.LogMessage(f"已更新 .p4config 文件: {TargetWorkspace}")
+            if self.GlobalCfg.GetCreateP4Config():
+                CreateP4ConfigFile(TargetWorkspace, TargetClientName, self.P4.port, self.P4.user)
+                self.UI.LogMessage(f"已更新 .p4config 文件: {TargetWorkspace}")
 
-            self._ResetDefaultVars()
-            self._UpdateUsedWorkspace()
+            self.ResetDefaultVars()
+            self.UpdateUsedWorkspace()
 
             # 检查是否需要同步
-            NeedSync = self.global_config.GetStreamNeedSync(self.select_stream_path)
+            NeedSync = self.GlobalCfg.GetStreamNeedSync(self.SelectStreamPath)
             if NeedSync:
-                self.ui.LogWarning("检测到上次同步未完成，重新执行同步...")
-                self.ui.UpdateStatus("正在同步...", "orange", Blink=True)
-                self.ui.DisableUI()
-                threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
+                self.UI.LogWarning("检测到上次同步未完成，重新执行同步...")
+                self.UI.UpdateStatus("正在同步...", "orange", Blink=True)
+                self.UI.DisableUI()
+                threading.Thread(target=self.RunSyncAndClean, args=(IsOffline,), daemon=True).start()
             else:
                 # 直接打开 P4V
-                LaunchP4V(self.p4.port, self.p4.user, TargetClientName)
-                self.ui.LogMessage("正在启动 P4V...")
-                self.ui.UpdateStatus("就绪", "green")
+                LaunchP4V(self.P4.port, self.P4.user, TargetClientName)
+                self.UI.LogMessage("正在启动 P4V...")
+                self.UI.UpdateStatus("就绪", "green")
             return
 
         # === 以下是创建新工作区的逻辑 ===
 
         # 检查是否使用默认路径，需要用户确认
-        if self.ui.workspace_is_default:
+        if self.UI.WorkspaceIsDefault:
             Result = messagebox.askyesno("确认默认路径",
                 f"当前使用自动生成的默认路径：\n\n{TargetWorkspace}\n\n是否使用该路径？")
             if not Result:
-                self.ui.LogMessage("用户取消操作。")
+                self.UI.LogMessage("用户取消操作。")
                 return
 
-        CurrentClients = GetLocalClientsWithTag(self.p4, Tag)
+        CurrentClients = GetLocalClientsWithTag(self.P4, Tag)
         CurrentCnt = len(CurrentClients)
 
         if CurrentCnt < MaxCnt:
             # 未达上限，创建新工作区
-            self.ui.LogMessage(f"创建新工作区 {TargetClientName}...")
+            self.UI.LogMessage(f"创建新工作区 {TargetClientName}...")
         else:
             # 已达上限，需要删除最旧工作区
-            OldestClient = self.global_config.GetOldestWorkspace(CurrentClients)
+            OldestClient = self.GlobalCfg.GetOldestWorkspace(CurrentClients)
             if not OldestClient:
                 messagebox.showerror("错误", "无法找到可删除的工作区")
                 return
 
-            self.ui.LogMessage(f"已达最大工作区数量 ({CurrentCnt}/{MaxCnt})，需要删除最旧工作区 {OldestClient}...")
+            self.UI.LogMessage(f"已达最大工作区数量 ({CurrentCnt}/{MaxCnt})，需要删除最旧工作区 {OldestClient}...")
 
             # 检查待删除工作区是否有未提交修改
-            OpenedFiles = GetOpenedFiles(self.p4, OldestClient)
+            OpenedFiles = GetOpenedFiles(self.P4, OldestClient)
             # 检查 P4V 是否正在运行（可能正在使用该工作区）
             P4VRunning = IsP4GUIRunning()
 
@@ -307,14 +307,14 @@ class AppCallbacks:
                     ErrMsg += "• P4V 正在运行中（可能正在使用该工作区）\n\n"
                 ErrMsg += "请手动处理后重试。"
                 messagebox.showerror("无法删除工作区", ErrMsg)
-                self.ui.LogMessage(f"工作区 {OldestClient} 无法删除，操作已取消。")
+                self.UI.LogMessage(f"工作区 {OldestClient} 无法删除，操作已取消。")
                 return
 
             # 删除旧工作区
             try:
-                DeleteClient(self.p4, OldestClient)
-                self.global_config.RemoveWorkspaceTimestamp(OldestClient)
-                self.ui.LogMessage(f"已删除工作区: {OldestClient}")
+                DeleteClient(self.P4, OldestClient)
+                self.GlobalCfg.RemoveWorkspaceTimestamp(OldestClient)
+                self.UI.LogMessage(f"已删除工作区: {OldestClient}")
             except Exception as E:
                 messagebox.showerror("删除失败", f"删除工作区失败：{E}")
                 return
@@ -324,237 +324,241 @@ class AppCallbacks:
             Result = messagebox.askyesno("目录不存在",
                 f"目录 {TargetWorkspace} 不存在。\n\n是否创建该目录并继续切换？")
             if not Result:
-                self.ui.LogMessage("用户取消操作。")
+                self.UI.LogMessage("用户取消操作。")
                 return
             os.makedirs(TargetWorkspace, exist_ok=True)
-            self.ui.LogMessage(f"已创建目录: {TargetWorkspace}")
+            self.UI.LogMessage(f"已创建目录: {TargetWorkspace}")
 
         # 创建新工作区
-        self.ui.LogMessage(f"创建工作区: {TargetClientName}")
-        self.ui.LogMessage(f"流路径: {self.select_stream_path}")
-        self.ui.LogMessage(f"工作区目录: {TargetWorkspace}")
+        self.UI.LogMessage(f"创建工作区: {TargetClientName}")
+        self.UI.LogMessage(f"流路径: {self.SelectStreamPath}")
+        self.UI.LogMessage(f"工作区目录: {TargetWorkspace}")
 
-        AutoRmdir = self.global_config.GetAutoRmdir()
-        CreateStreamClient(self.p4, TargetClientName, self.select_stream_path, TargetWorkspace, AutoRmdir)
+        AutoRmdir = self.GlobalCfg.GetAutoRmdir()
+        CreateStreamClient(self.P4, TargetClientName, self.SelectStreamPath, TargetWorkspace, AutoRmdir)
         if AutoRmdir:
-            self.ui.LogMessage("已启用自动删除空文件夹选项。")
+            self.UI.LogMessage("已启用自动删除空文件夹选项。")
 
         # 创建 P4CONFIG 文件
-        if self.global_config.GetCreateP4Config():
-            CreateP4ConfigFile(TargetWorkspace, TargetClientName, self.p4.port, self.p4.user)
-            self.ui.LogMessage(f"已创建 .p4config 文件: {TargetWorkspace}")
+        if self.GlobalCfg.GetCreateP4Config():
+            CreateP4ConfigFile(TargetWorkspace, TargetClientName, self.P4.port, self.P4.user)
+            self.UI.LogMessage(f"已创建 .p4config 文件: {TargetWorkspace}")
 
         # 更新当前客户端和时间戳
-        self.cur_client = TargetClientName
-        self.p4.client = TargetClientName
-        self.global_config.UpdateWorkspaceTimestamp(TargetClientName)
+        self.CurClient = TargetClientName
+        self.P4.client = TargetClientName
+        self.GlobalCfg.UpdateWorkspaceTimestamp(TargetClientName)
 
         # 保存工作区目录和离线标记到缓存，并设置需要同步标记
-        self.global_config.SetStreamCache(self.select_stream_path, TargetWorkspace, IsOffline)
-        self.global_config.SetStreamNeedSync(self.select_stream_path, True)
+        self.GlobalCfg.SetStreamCache(self.SelectStreamPath, TargetWorkspace, IsOffline)
+        self.GlobalCfg.SetStreamNeedSync(self.SelectStreamPath, True)
 
-        self._ResetDefaultVars()
-        self._UpdateUsedWorkspace()
+        self.ResetDefaultVars()
+        self.UpdateUsedWorkspace()
 
         # 只有创建新工作区时才执行同步
-        self.ui.UpdateStatus("正在同步...", "orange", Blink=True)
-        self.ui.DisableUI()
-        threading.Thread(target=self._RunSyncAndClean, args=(IsOffline,), daemon=True).start()
+        self.UI.UpdateStatus("正在同步...", "orange", Blink=True)
+        self.UI.DisableUI()
+        threading.Thread(target=self.RunSyncAndClean, args=(IsOffline,), daemon=True).start()
 
-    def _RunSyncAndClean(self, IsOffline: bool = False):
+    def RunSyncAndClean(self, IsOffline: bool = False):
         """执行同步和清理操作"""
         P4Thread = None
         try:
-            self.ui.UpdateOperationLabel("正在连接服务器...")
-            CmdTarget = f"//{self.cur_client}/..."
-            WorkspaceRoot = self.ui.p4_workspace_var.get()
+            self.UI.UpdateOperationLabel("正在连接服务器...")
+            CmdTarget = f"//{self.CurClient}/..."
+            WorkspaceRoot = self.UI.P4WorkspaceVar.get()
 
             P4Thread = P4()
             P4Thread.connect()
-            P4Thread.client = self.cur_client
+            P4Thread.client = self.CurClient
 
             # 步骤1: sync -k 更新 have list
-            self.ui.UpdateOperationLabel("正在更新文件索引...")
-            self.ui.LogMessage("执行 sync -k 更新 have list...")
+            self.UI.UpdateOperationLabel("正在更新文件索引...")
+            self.UI.LogMessage("执行 sync -k 更新 have list...")
             try:
                 RunSync(P4Thread, CmdTarget, FlushOnly=True)
-                self.ui.LogMessage("have list 更新完成。")
+                self.UI.LogMessage("have list 更新完成。")
             except P4Exception as E:
                 ErrStr = str(E).lower()
                 if "up-to-date" in ErrStr or "no file(s)" in ErrStr:
-                    self.ui.LogMessage("have list 已是最新状态。")
+                    self.UI.LogMessage("have list 已是最新状态。")
                 else:
                     raise
 
             if IsOffline:
                 # 离线目录流程：使用 reconcile
-                self.ui.UpdateOperationLabel("正在执行 reconcile...")
-                self.ui.LogMessage("执行 reconcile 识别本地修改...")
+                self.UI.UpdateOperationLabel("正在执行 reconcile...")
+                self.UI.LogMessage("执行 reconcile 识别本地修改...")
                 Result = RunReconcile(P4Thread, CmdTarget)
                 Total = Result["edit"] + Result["add"] + Result["delete"]
-                self.ui.LogMessage(f"reconcile 完成：{Result['edit']} 个修改，{Result['add']} 个新增，{Result['delete']} 个删除")
+                self.UI.LogMessage(f"reconcile 完成：{Result['edit']} 个修改，{Result['add']} 个新增，{Result['delete']} 个删除")
                 if Total > 0:
-                    self.ui.LogMessage("所有变更已放入默认 changelist，请在 P4V 中查看。")
+                    self.UI.LogMessage("所有变更已放入默认 changelist，请在 P4V 中查看。")
                 else:
-                    self.ui.LogMessage("本地与服务器一致，无需处理。")
+                    self.UI.LogMessage("本地与服务器一致，无需处理。")
             else:
                 # 普通目录流程：删除多余 + 同步差异
                 # 步骤2: 解析 .p4ignore
-                self.ui.UpdateOperationLabel("正在解析 .p4ignore...")
-                self.ui.LogMessage("读取 .p4ignore 规则...")
+                self.UI.UpdateOperationLabel("正在解析 .p4ignore...")
+                self.UI.LogMessage("读取 .p4ignore 规则...")
                 IgnoreParser = P4IgnoreParser(WorkspaceRoot)
-                self.ui.LogMessage(f"已加载 {len(IgnoreParser.patterns)} 条忽略规则。")
+                self.UI.LogMessage(f"已加载 {len(IgnoreParser.Patterns)} 条忽略规则。")
 
                 # 步骤3: 获取 have list
-                self.ui.UpdateOperationLabel("正在获取文件列表...")
-                self.ui.LogMessage("获取 have list...")
+                self.UI.UpdateOperationLabel("正在获取文件列表...")
+                self.UI.LogMessage("获取 have list...")
                 try:
                     HavePaths = GetHaveList(P4Thread, CmdTarget)
-                    self.ui.LogMessage(f"have list 包含 {len(HavePaths)} 个文件。")
+                    self.UI.LogMessage(f"have list 包含 {len(HavePaths)} 个文件。")
                 except P4Exception as E:
                     ErrStr = str(E).lower()
                     if "no file(s)" in ErrStr:
                         HavePaths = set()
-                        self.ui.LogMessage("have list 为空。")
+                        self.UI.LogMessage("have list 为空。")
                     else:
                         raise
 
                 # 步骤4: 删除多余文件
-                self.ui.UpdateOperationLabel("正在清理多余文件...")
-                self.ui.LogMessage("检测并删除多余的版本控制文件...")
-                DeletedCnt = DeleteObsoleteFiles(WorkspaceRoot, HavePaths, IgnoreParser, self.ui.LogMessage)
-                self.ui.LogMessage(f"已删除 {DeletedCnt} 个多余文件。")
+                self.UI.UpdateOperationLabel("正在清理多余文件...")
+                self.UI.LogMessage("检测并删除多余的版本控制文件...")
+                DeletedCnt = DeleteObsoleteFiles(WorkspaceRoot, HavePaths, IgnoreParser, self.UI.LogMessage)
+                self.UI.LogMessage(f"已删除 {DeletedCnt} 个多余文件。")
 
                 # 步骤5: diff -se 覆盖内容不同的文件
-                self.ui.UpdateOperationLabel("正在检测修改文件...")
-                self.ui.LogMessage("执行 diff -se 检测内容不同的文件...")
+                self.UI.UpdateOperationLabel("正在检测修改文件...")
+                self.UI.LogMessage("执行 diff -se 检测内容不同的文件...")
                 DiffFiles = GetDifferentFiles(P4Thread, CmdTarget)
-                self.ui.LogMessage(f"发现 {len(DiffFiles)} 个内容不同的文件。")
+                self.UI.LogMessage(f"发现 {len(DiffFiles)} 个内容不同的文件。")
 
                 # 步骤6: diff -sd 下载缺失的文件
-                self.ui.UpdateOperationLabel("正在检测缺失文件...")
-                self.ui.LogMessage("执行 diff -sd 检测缺失的文件...")
+                self.UI.UpdateOperationLabel("正在检测缺失文件...")
+                self.UI.LogMessage("执行 diff -sd 检测缺失的文件...")
                 MissingFiles = GetMissingFiles(P4Thread, CmdTarget)
-                self.ui.LogMessage(f"发现 {len(MissingFiles)} 个缺失的文件。")
+                self.UI.LogMessage(f"发现 {len(MissingFiles)} 个缺失的文件。")
 
                 # 步骤7: 同步问题文件（先覆盖不同，再下载缺失）
                 ProblemFiles = DiffFiles + MissingFiles
                 if ProblemFiles:
-                    self.ui.ShowProgressBar()
+                    self.UI.ShowProgressBar()
                     TotalFiles = len(ProblemFiles)
 
                     def OnFileProcessed(Cnt, DepotFile):
-                        self.ui.UpdateProgress(Cnt, TotalFiles)
-                        self.ui.LogMessage(DepotFile)
+                        self.UI.UpdateProgress(Cnt, TotalFiles)
+                        self.UI.LogMessage(DepotFile)
 
-                    Handler = SyncOutputHandler(OnFileProcessed, self.ui.LogMessage)
+                    Handler = SyncOutputHandler(OnFileProcessed, self.UI.LogMessage)
 
-                    self.ui.UpdateOperationLabel(f"正在同步 {TotalFiles} 个文件...")
-                    self.ui.LogMessage(f"执行 sync -f --parallel 同步 {TotalFiles} 个文件...")
+                    self.UI.UpdateOperationLabel(f"正在同步 {TotalFiles} 个文件...")
+                    self.UI.LogMessage(f"执行 sync -f --parallel 同步 {TotalFiles} 个文件...")
                     try:
                         SyncFiles(P4Thread, ProblemFiles, Handler, Parallel=8)
-                        self.ui.LogMessage("文件同步完成。")
+                        self.UI.LogMessage("文件同步完成。")
                     except P4Exception as E:
                         ErrStr = str(E).lower()
                         if "up-to-date" in ErrStr:
-                            self.ui.LogMessage("文件已是最新状态。")
+                            self.UI.LogMessage("文件已是最新状态。")
                         else:
-                            self.ui.LogMessage(f"同步部分文件时出错：{E}")
+                            self.UI.LogMessage(f"同步部分文件时出错：{E}")
                 else:
-                    self.ui.LogMessage("所有文件已是最新状态。")
+                    self.UI.LogMessage("所有文件已是最新状态。")
 
-            self.ui.UpdateOperationLabel("操作已完成。")
+            self.UI.UpdateOperationLabel("操作已完成。")
 
         except P4Exception as E:
             ErrMsgs = E.errors if E.errors else [str(E)]
-            self.ui.LogError("同步操作中发生错误：" + "\n".join(ErrMsgs))
+            self.UI.LogError("同步操作中发生错误：" + "\n".join(ErrMsgs))
             HasError = True
         except Exception as E:
-            self.ui.LogError(f"操作中发生错误：{E}")
+            self.UI.LogError(f"操作中发生错误：{E}")
             HasError = True
         else:
             HasError = False
         finally:
             if P4Thread and P4Thread.connected():
                 P4Thread.disconnect()
-            self._FinishSyncAndClean(HasError)
+            self.FinishSyncAndClean(HasError)
 
-    def _FinishSyncAndClean(self, HasError: bool = False):
+    def FinishSyncAndClean(self, HasError: bool = False):
         """同步清理完成后的清理工作"""
-        self.ui.HideProgressBar()
-        self.ui.EnableUI()
+        self.UI.HideProgressBar()
+        self.UI.EnableUI()
         if HasError:
-            self.ui.UpdateStatus("错误", "red")
-            self.ui.LogError("操作完成，但有错误发生。")
+            self.UI.UpdateStatus("错误", "red")
+            self.UI.LogError("操作完成，但有错误发生。")
         else:
             # 同步成功，清除 NeedSync 标记
-            if self.select_stream_path:
-                self.global_config.SetStreamNeedSync(self.select_stream_path, False)
-            self.ui.UpdateStatus("就绪", "green")
-            self.ui.LogMessage("操作已完成。")
+            if self.SelectStreamPath:
+                self.GlobalCfg.SetStreamNeedSync(self.SelectStreamPath, False)
+            self.UI.UpdateStatus("就绪", "green")
+            self.UI.LogMessage("操作已完成。")
             # 打开 P4V
-            LaunchP4V(self.p4.port, self.p4.user, self.cur_client)
-            self.ui.LogMessage("正在启动 P4V...")
+            LaunchP4V(self.P4.port, self.P4.user, self.CurClient)
+            self.UI.LogMessage("正在启动 P4V...")
 
-    def _UpdateWorkspaceFromCache(self):
+    def UpdateWorkspaceFromCache(self):
         """根据工作区、缓存或默认值更新工作区目录和离线状态"""
-        OfflineFlag = self.global_config.GetStreamOffline(self.select_stream_path)
-        self.ui.offline_var.set(OfflineFlag)
+        OfflineFlag = self.GlobalCfg.GetStreamOffline(self.SelectStreamPath)
+        self.UI.OfflineVar.set(OfflineFlag)
+
+        # 手动选择的目录不被自动覆盖
+        if self.UI.WorkspaceIsManual:
+            return
 
         # 构建目标工作区名称
-        Tag = self.ui.workspace_tag_var.get().strip()
-        Project = self.ui.p4_project_var.get()
-        Stream = self.ui.p4_stream_var.get()
+        Tag = self.UI.WorkspaceTagVar.get().strip()
+        Project = self.UI.P4ProjectVar.get()
+        Stream = self.UI.P4StreamVar.get()
         TargetClientName = f"{Tag}_{Project}_{Stream}" if Tag else ""
 
         # 优先从已存在的工作区获取目录
-        if TargetClientName and ClientExists(self.p4, TargetClientName):
-            Root = GetClientRoot(self.p4, TargetClientName)
+        if TargetClientName and ClientExists(self.P4, TargetClientName):
+            Root = GetClientRoot(self.P4, TargetClientName)
             if Root:
-                self.ui.p4_workspace_var.set(Root)
-                self.ui.SetWorkspaceSource(is_cached=True)
+                self.UI.P4WorkspaceVar.set(Root)
+                self.UI.SetWorkspaceSource(IsCached=True)
                 # 更新缓存（保留 offline 和 need_sync）
-                self.global_config.SetStreamCache(self.select_stream_path, Root)
+                self.GlobalCfg.SetStreamCache(self.SelectStreamPath, Root)
                 return
 
         # 其次从缓存获取
-        Cached = self.global_config.GetStreamWorkspace(self.select_stream_path)
+        Cached = self.GlobalCfg.GetStreamWorkspace(self.SelectStreamPath)
         if Cached:
-            self.ui.p4_workspace_var.set(Cached)
-            self.ui.SetWorkspaceSource(is_cached=True)
+            self.UI.P4WorkspaceVar.set(Cached)
+            self.UI.SetWorkspaceSource(IsCached=True)
         else:
             # 最后使用默认路径
-            DefaultPath = os.path.join(self.default_workspace_root, Project)
-            self.ui.p4_workspace_var.set(DefaultPath)
-            self.ui.SetWorkspaceSource(is_cached=False)
-            self.ui.LogMessage(f"该流没有缓存记录，使用默认路径: {DefaultPath}")
+            DefaultPath = os.path.join(self.DefaultWorkspaceRoot, Project)
+            self.UI.P4WorkspaceVar.set(DefaultPath)
+            self.UI.SetWorkspaceSource(IsCached=False)
+            self.UI.LogMessage(f"该流没有缓存记录，使用默认路径: {DefaultPath}")
 
-    def _UpdateWorkspacePreview(self):
+    def UpdateWorkspacePreview(self):
         """更新工作区名称预览"""
-        TagStr = self.ui.workspace_tag_var.get().strip() or "<标识>"
-        ProjectStr = self.ui.p4_project_var.get() or "<项目>"
-        StreamStr = self.ui.p4_stream_var.get() or "<分支>"
+        TagStr = self.UI.WorkspaceTagVar.get().strip() or "<标识>"
+        ProjectStr = self.UI.P4ProjectVar.get() or "<项目>"
+        StreamStr = self.UI.P4StreamVar.get() or "<分支>"
         Name = f"{TagStr}_{ProjectStr}_{StreamStr}"
         # 检查工作区是否存在
         try:
-            Clients = GetAllClients(self.p4)
+            Clients = GetAllClients(self.P4)
             Exists = any(C.get('client') == Name for C in Clients)
         except Exception:
             Exists = False
-        self.ui.UpdateWorkspacePreview(Name, Exists)
+        self.UI.UpdateWorkspacePreview(Name, Exists)
 
-    def _UpdateUsedWorkspace(self):
+    def UpdateUsedWorkspace(self):
         """更新使用工作区显示，只统计符合 标识_项目_分支 命名格式的工作区"""
         try:
-            MaxCnt = max(1, self.ui.max_workspace_cnt_var.get())
+            MaxCnt = max(1, self.UI.MaxWorkspaceCntVar.get())
         except Exception:
-            MaxCnt = self.global_config.GetMaxWorkspaceCnt()
+            MaxCnt = self.GlobalCfg.GetMaxWorkspaceCnt()
 
-        Tag = self.ui.workspace_tag_var.get().strip()
+        Tag = self.UI.WorkspaceTagVar.get().strip()
         UsedCnt = 0
         if Tag:
             try:
-                Clients = GetAllClients(self.p4)
+                Clients = GetAllClients(self.P4)
                 Prefix = f"{Tag}_"
                 for Client in Clients:
                     Name = Client.get('client', '')
@@ -565,24 +569,24 @@ class AppCallbacks:
                             UsedCnt += 1
             except Exception:
                 pass
-        self.ui.UpdateUsedWorkspace(UsedCnt, MaxCnt)
+        self.UI.UpdateUsedWorkspace(UsedCnt, MaxCnt)
 
     def OnWorkspaceClick(self, event=None):
         """工作区目录点击事件，打开目录选择对话框"""
-        CurPath = self.ui.p4_workspace_var.get()
+        CurPath = self.UI.P4WorkspaceVar.get()
         # 查找存在的目录作为初始目录
-        InitialDir = self._FindExistingParent(CurPath)
+        InitialDir = self.FindExistingParent(CurPath)
         SelectedPath = filedialog.askdirectory(initialdir=InitialDir)
         if SelectedPath:
-            self.ui.p4_workspace_var.set(SelectedPath)
-            self.ui.SetWorkspaceSourceManual()
+            self.UI.P4WorkspaceVar.set(SelectedPath)
+            self.UI.SetWorkspaceSourceManual()
 
     def OnOfflineChanged(self):
         """离线复选框状态改变事件，保存到缓存"""
-        if self.select_stream_path:
-            self.global_config.SetStreamOffline(self.select_stream_path, self.ui.offline_var.get())
+        if self.SelectStreamPath:
+            self.GlobalCfg.SetStreamOffline(self.SelectStreamPath, self.UI.OfflineVar.get())
 
-    def _FindExistingParent(self, Path: str) -> str:
+    def FindExistingParent(self, Path: str) -> str:
         """向上查找存在的父目录"""
         while Path:
             if os.path.isdir(Path):
@@ -593,40 +597,41 @@ class AppCallbacks:
             Path = Parent
         return os.path.expanduser("~")
 
-    def _ResetDefaultVars(self):
+    def ResetDefaultVars(self):
         """重置默认变量"""
-        self.default_project = self.ui.p4_project_var.get()
-        self.default_stream = self.ui.p4_stream_var.get()
+        self.UI.WorkspaceIsManual = False
+        self.DefaultProject = self.UI.P4ProjectVar.get()
+        self.DefaultStream = self.UI.P4StreamVar.get()
 
-        ClientInfo = GetClientInfo(self.p4, self.cur_client)
+        ClientInfo = GetClientInfo(self.P4, self.CurClient)
         if ClientInfo:
-            self.default_stream_path = ClientInfo.get('Stream', '')
+            self.DefaultStreamPath = ClientInfo.get('Stream', '')
             WorkspaceRoot = ClientInfo.get('Root', '')
-            self.default_workspace_root = os.path.dirname(WorkspaceRoot)
+            self.DefaultWorkspaceRoot = os.path.dirname(WorkspaceRoot)
 
-        self._UpdateWorkspaceFromCache()
+        self.UpdateWorkspaceFromCache()
 
-    def Initialize(self, client_name: str):
+    def Initialize(self, ClientName: str):
         """初始化回调状态"""
-        self.cur_client = client_name
+        self.CurClient = ClientName
 
         # 加载全局配置到 UI
-        self.saved_tag = self.global_config.GetWorkspaceTag()
-        self.ui.workspace_tag_var.set(self.saved_tag)
-        self.ui.max_workspace_cnt_var.set(self.global_config.GetMaxWorkspaceCnt())
-        self.ui.create_p4config_var.set(self.global_config.GetCreateP4Config())
-        self.ui.auto_rmdir_var.set(self.global_config.GetAutoRmdir())
-        self.ui.server_user_var.set(f"{self.p4.port} | {self.p4.user}")
+        self.SavedTag = self.GlobalCfg.GetWorkspaceTag()
+        self.UI.WorkspaceTagVar.set(self.SavedTag)
+        self.UI.MaxWorkspaceCntVar.set(self.GlobalCfg.GetMaxWorkspaceCnt())
+        self.UI.CreateP4ConfigVar.set(self.GlobalCfg.GetCreateP4Config())
+        self.UI.AutoRmdirVar.set(self.GlobalCfg.GetAutoRmdir())
+        self.UI.ServerUserVar.set(f"{self.P4.port} | {self.P4.user}")
 
         # 初始化客户端状态
-        ClientInfo = GetClientInfo(self.p4, client_name)
+        ClientInfo = GetClientInfo(self.P4, ClientName)
         if ClientInfo:
-            self.select_stream_path = ClientInfo.get('Stream', '')
-            Parsed = ParseStreamPath(self.select_stream_path)
-            self.ui.p4_project_var.set(Parsed[0])
-            self.ui.p4_stream_var.set(Parsed[1])
+            self.SelectStreamPath = ClientInfo.get('Stream', '')
+            Parsed = ParseStreamPath(self.SelectStreamPath)
+            self.UI.P4ProjectVar.set(Parsed[0])
+            self.UI.P4StreamVar.set(Parsed[1])
 
-        self._ResetDefaultVars()
-        self._UpdateWorkspacePreview()
-        self._UpdateUsedWorkspace()
-        self._OnTagVarChanged()  # 触发标识验证
+        self.ResetDefaultVars()
+        self.UpdateWorkspacePreview()
+        self.UpdateUsedWorkspace()
+        self.OnTagVarChanged()  # 触发标识验证

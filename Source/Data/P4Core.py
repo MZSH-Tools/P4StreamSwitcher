@@ -321,14 +321,14 @@ class P4IgnoreParser:
     ]
 
     def __init__(self, WorkspaceRoot: str):
-        self.workspace_root = WorkspaceRoot
-        self.patterns = list(self.DEFAULT_PATTERNS)
-        self.negations = []
-        self._Load()
+        self.WorkspaceRoot = WorkspaceRoot
+        self.Patterns = list(self.DEFAULT_PATTERNS)
+        self.Negations = []
+        self.Load()
 
-    def _Load(self):
+    def Load(self):
         """读取并解析 .p4ignore 文件"""
-        P4IgnorePath = os.path.join(self.workspace_root, ".p4ignore")
+        P4IgnorePath = os.path.join(self.WorkspaceRoot, ".p4ignore")
         if not os.path.exists(P4IgnorePath):
             return
         with open(P4IgnorePath, 'r', encoding='utf-8', errors='ignore') as F:
@@ -337,22 +337,22 @@ class P4IgnoreParser:
                 if not Line or Line.startswith('#'):
                     continue
                 if Line.startswith('!'):
-                    self.negations.append(Line[1:])
+                    self.Negations.append(Line[1:])
                 else:
-                    self.patterns.append(Line)
+                    self.Patterns.append(Line)
 
     def ShouldIgnore(self, FilePath: str) -> bool:
         """判断文件是否应该被忽略"""
-        RelPath = os.path.relpath(FilePath, self.workspace_root).replace('\\', '/')
-        for Pattern in self.negations:
-            if self._Match(RelPath, Pattern):
+        RelPath = os.path.relpath(FilePath, self.WorkspaceRoot).replace('\\', '/')
+        for Pattern in self.Negations:
+            if self.Match(RelPath, Pattern):
                 return False
-        for Pattern in self.patterns:
-            if self._Match(RelPath, Pattern):
+        for Pattern in self.Patterns:
+            if self.Match(RelPath, Pattern):
                 return True
         return False
 
-    def _Match(self, Path: str, Pattern: str) -> bool:
+    def Match(self, Path: str, Pattern: str) -> bool:
         """匹配路径和模式"""
         if Pattern.endswith('/'):
             DirPattern = Pattern.rstrip('/')
@@ -394,10 +394,10 @@ class PreviewOutputHandler(OutputHandler):
     """用于统计文件数量的 Handler"""
     def __init__(self):
         super().__init__()
-        self.count = 0
+        self.Count = 0
 
     def outputStat(self, Stat):
-        self.count += 1
+        self.Count += 1
         return OutputHandler.HANDLED
 
 
@@ -405,24 +405,24 @@ class SyncOutputHandler(OutputHandler):
     """用于同步操作的 Handler，支持进度回调"""
     def __init__(self, OnFileProcessed=None, OnText=None):
         super().__init__()
-        self.processed_files = 0
-        self.on_file_processed = OnFileProcessed
-        self.on_text = OnText
+        self.ProcessedFiles = 0
+        self.OnFileProcessed = OnFileProcessed
+        self.OnText = OnText
 
     def outputStat(self, Stat):
-        self.processed_files += 1
-        if self.on_file_processed:
-            self.on_file_processed(self.processed_files, Stat.get('depotFile', ''))
+        self.ProcessedFiles += 1
+        if self.OnFileProcessed:
+            self.OnFileProcessed(self.ProcessedFiles, Stat.get('depotFile', ''))
         return OutputHandler.HANDLED
 
     def outputText(self, Text):
-        if self.on_text:
-            self.on_text(Text)
+        if self.OnText:
+            self.OnText(Text)
         return OutputHandler.HANDLED
 
     def outputInfo(self, Info):
-        if self.on_text:
-            self.on_text(Info)
+        if self.OnText:
+            self.OnText(Info)
         return OutputHandler.HANDLED
 
 
