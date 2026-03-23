@@ -1,6 +1,7 @@
 import os
 import json
 import time
+from collections import Counter
 from platformdirs import user_cache_dir
 
 
@@ -165,3 +166,21 @@ class GlobalConfig:
         """获取流是否需要同步，默认 False"""
         Entry = self.GetStreamEntry(StreamPath)
         return Entry.get("NeedSync", False) if Entry else False
+
+    def InferRootByStream(self, StreamName: str, ExcludeStreamPath: str = "") -> str | None:
+        """根据同名分支的缓存工作区推断最常用的根目录"""
+        Cache = self.Config.get("StreamCache", {})
+        Parents = []
+        for Path, Entry in Cache.items():
+            # 跳过当前流自身
+            if Path == ExcludeStreamPath:
+                continue
+            # 匹配分支名（流路径最后一段）
+            if Path.rstrip('/').split('/')[-1] == StreamName:
+                Workspace = Entry.get("Workspace", "")
+                if Workspace:
+                    Parents.append(os.path.dirname(Workspace))
+        if not Parents:
+            return None
+        # 返回出现次数最多的父目录
+        return Counter(Parents).most_common(1)[0][0]
