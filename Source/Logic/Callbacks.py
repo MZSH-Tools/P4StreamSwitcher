@@ -7,10 +7,10 @@ from Source.Data.P4Core import (
     GetClientInfo, GetClientRoot, GetMainlineProjects, GetProjectStreams, ParseStreamPath,
     GetAllStreams, GetOpenedFiles, GetHaveList, GetDifferentFiles, GetMissingFiles,
     SyncFiles, RunSync, P4IgnoreParser, DeleteObsoleteFiles, SyncOutputHandler,
-    IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
+    CountingOutputHandler, IsP4GUIRunning, RunReconcile, LaunchP4V, GetAllClients,
     CheckTagConflict, GetLocalClientsWithTag, RenameClient,
     CreateStreamClient, ClientExists, DeleteClient, CreateP4ConfigFile, UpdateClientRmdir,
-    UpdateClientRoot
+    UpdateClientLineEnd, UpdateClientRoot
 )
 from Source.Data.WorkspaceCache import GlobalConfig
 from Source.UI.UIComponents import AppUI, LogLevel
@@ -54,6 +54,7 @@ class AppCallbacks:
         self.UI.MaxWorkspaceCntVar.trace_add("write", self.OnMaxCntVarChanged)
         self.UI.CreateP4ConfigCheckbox.configure(command=self.OnCreateP4ConfigChanged)
         self.UI.AutoRmdirCheckbox.configure(command=self.OnAutoRmdirChanged)
+        self.UI.LineEndCombo.bind("<<ComboboxSelected>>", self.OnLineEndChanged)
 
     def OnTagVarChanged(self, *args):
         """工作区标识变量改变时验证标识并更新状态"""
@@ -170,6 +171,10 @@ class AppCallbacks:
                     self.UI.LogMessage(f"已更新 {len(Clients)} 个工作区的 rmdir 选项。")
             except Exception as Err:
                 self.UI.LogMessage(f"更新工作区选项时出错: {Err}")
+
+    def OnLineEndChanged(self, event=None):
+        """换行符选项改变"""
+        self.GlobalCfg.SetLineEnd(self.UI.LineEndVar.get())
 
     def OnProjectDropdown(self, event=None):
         """项目下拉框点击事件"""
@@ -414,9 +419,11 @@ class AppCallbacks:
         self.UI.LogMessage(f"工作区目录: {TargetWorkspace}")
 
         AutoRmdir = self.GlobalCfg.GetAutoRmdir()
-        CreateStreamClient(self.P4, TargetClientName, self.SelectStreamPath, TargetWorkspace, AutoRmdir)
+        LineEnd = self.GlobalCfg.GetLineEnd()
+        CreateStreamClient(self.P4, TargetClientName, self.SelectStreamPath, TargetWorkspace, AutoRmdir, LineEnd)
         if AutoRmdir:
             self.UI.LogMessage("已启用自动删除空文件夹选项。")
+        self.UI.LogMessage(f"换行符设置: {LineEnd}")
 
         # 创建 P4CONFIG 文件
         if self.GlobalCfg.GetCreateP4Config():
@@ -455,9 +462,14 @@ class AppCallbacks:
             # 步骤1: sync -k 更新 have list
             self.UI.UpdateOperationLabel("正在更新文件索引...")
             self.UI.LogMessage("执行 sync -k 更新 have list...")
+
+            def OnSyncCount(Cnt):
+                self.UI.UpdateOperationLabel(f"正在更新文件索引... ({Cnt} 个文件)")
+
+            SyncHandler = CountingOutputHandler(OnSyncCount)
             try:
-                RunSync(P4Thread, CmdTarget, FlushOnly=True)
-                self.UI.LogMessage("have list 更新完成。")
+                RunSync(P4Thread, CmdTarget, Handler=SyncHandler, FlushOnly=True)
+                self.UI.LogMessage(f"have list 更新完成，共 {SyncHandler.Cnt} 个文件。")
             except P4Exception as Err:
                 ErrStr = str(Err).lower()
                 if "up-to-date" in ErrStr or "no such file(s)" in ErrStr:
@@ -469,7 +481,11 @@ class AppCallbacks:
                 # 离线目录流程：使用 reconcile
                 self.UI.UpdateOperationLabel("正在执行 reconcile...")
                 self.UI.LogMessage("执行 reconcile 识别本地修改...")
-                Result = RunReconcile(P4Thread, CmdTarget)
+
+                def OnReconcileCount(Cnt):
+                    self.UI.UpdateOperationLabel(f"正在执行 reconcile... ({Cnt} 个文件)")
+
+                Result = RunReconcile(P4Thread, CmdTarget, OnCount=OnReconcileCount)
                 Total = Result["edit"] + Result["add"] + Result["delete"]
                 self.UI.LogMessage(f"reconcile 完成：{Result['edit']} 个修改，{Result['add']} 个新增，{Result['delete']} 个删除")
                 if Total > 0:
@@ -492,7 +508,7 @@ class AppCallbacks:
                     self.UI.LogMessage(f"have list 包含 {len(HavePaths)} 个文件。")
                 except P4Exception as Err:
                     ErrStr = str(Err).lower()
-                    if "no such file(s)" in ErrStr:
+                    if "no such file(s)" in ErrStr or "not on client" in ErrStr:
                         HavePaths = set()
                         self.UI.LogMessage("have list 为空。")
                     else:
@@ -709,6 +725,23 @@ class AppCallbacks:
             Path = Parent
         return os.path.expanduser("~")
 
+    def CheckAllWorkspaceLineEnd(self):
+        """检查所有本地工作区的换行符设置，不一致则修正"""
+        Tag = self.UI.WorkspaceTagVar.get().strip()
+        if not Tag:
+            return
+        LineEnd = self.GlobalCfg.GetLineEnd()
+        try:
+            Clients = GetLocalClientsWithTag(self.P4, Tag)
+            UpdatedCnt = 0
+            for ClientName in Clients:
+                if UpdateClientLineEnd(self.P4, ClientName, LineEnd):
+                    UpdatedCnt += 1
+            if UpdatedCnt > 0:
+                self.UI.LogMessage(f"已修正 {UpdatedCnt} 个工作区的换行符为 {LineEnd}。")
+        except Exception as Err:
+            self.UI.LogMessage(f"检查换行符设置时出错: {Err}")
+
     def ResetDefaultVars(self):
         """重置默认变量"""
         self.UI.WorkspaceIsManual = False
@@ -733,6 +766,7 @@ class AppCallbacks:
         self.UI.MaxWorkspaceCntVar.set(self.GlobalCfg.GetMaxWorkspaceCnt())
         self.UI.CreateP4ConfigVar.set(self.GlobalCfg.GetCreateP4Config())
         self.UI.AutoRmdirVar.set(self.GlobalCfg.GetAutoRmdir())
+        self.UI.LineEndVar.set(self.GlobalCfg.GetLineEnd())
         self.UI.ServerUserVar.set(f"{self.P4.port} | {self.P4.user}")
 
         # 初始化客户端状态
@@ -747,3 +781,4 @@ class AppCallbacks:
         self.UpdateWorkspacePreview()
         self.UpdateUsedWorkspace()
         self.OnTagVarChanged()  # 触发标识验证
+        self.CheckAllWorkspaceLineEnd()

@@ -166,13 +166,14 @@ def CreateP4ConfigFile(WorkspaceRoot: str, ClientName: str, Server: str, User: s
         File.write(f"P4USER={User}\n")
 
 
-def CreateStreamClient(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str, AutoRmdir: bool = False):
+def CreateStreamClient(P4Conn: P4, ClientName: str, StreamPath: str, WorkspaceRoot: str, AutoRmdir: bool = False, LineEnd: str = "win"):
     """创建新的流客户端"""
     P4Conn.client = ClientName
     Spec = P4Conn.fetch_client()
     Spec['Host'] = socket.gethostname()
     Spec['Stream'] = StreamPath
     Spec['Root'] = WorkspaceRoot
+    Spec['LineEnd'] = LineEnd
 
     # 处理 rmdir 选项
     if AutoRmdir:
@@ -218,6 +219,21 @@ def UpdateClientRmdir(P4Conn: P4, ClientName: str, AutoRmdir: bool):
 
         Spec['Options'] = Options
         P4Conn.save_client(Spec)
+    finally:
+        P4Conn.client = OldClient
+
+
+def UpdateClientLineEnd(P4Conn: P4, ClientName: str, LineEnd: str):
+    """更新客户端的换行符设置，返回是否有修改"""
+    OldClient = P4Conn.client
+    try:
+        P4Conn.client = ClientName
+        Spec = P4Conn.fetch_client()
+        if Spec.get('LineEnd', '') == LineEnd:
+            return False
+        Spec['LineEnd'] = LineEnd
+        P4Conn.save_client(Spec)
+        return True
     finally:
         P4Conn.client = OldClient
 
@@ -438,6 +454,30 @@ class SyncOutputHandler(OutputHandler):
         return OutputHandler.HANDLED
 
 
+class CountingOutputHandler(OutputHandler):
+    """计数 Handler，用于显示已处理文件数，同时按 action 统计"""
+    def __init__(self, OnCount=None):
+        super().__init__()
+        self.Cnt = 0
+        self.Actions = {"edit": 0, "add": 0, "delete": 0}
+        self.OnCount = OnCount
+
+    def outputStat(self, Stat):
+        self.Cnt += 1
+        Action = Stat.get("action", "")
+        if Action in self.Actions:
+            self.Actions[Action] += 1
+        if self.OnCount:
+            self.OnCount(self.Cnt)
+        return OutputHandler.HANDLED
+
+    def outputText(self, Text):
+        return OutputHandler.HANDLED
+
+    def outputInfo(self, Info):
+        return OutputHandler.HANDLED
+
+
 def RunSync(P4Conn: P4, CmdTarget: str, Handler: OutputHandler = None, FlushOnly: bool = True, Parallel: int = 0):
     """执行 sync 命令（FlushOnly=True 时只更新 have list，不下载文件）"""
     if Handler:
@@ -451,20 +491,27 @@ def RunSync(P4Conn: P4, CmdTarget: str, Handler: OutputHandler = None, FlushOnly
     P4Conn.run(*Args)
 
 
-def RunReconcile(P4Conn: P4, CmdTarget: str, Parallel: int = 8) -> dict:
+def RunReconcile(P4Conn: P4, CmdTarget: str, Parallel: int = 8, OnCount=None) -> dict:
     """执行 reconcile 命令，返回统计结果"""
     Result = {"edit": 0, "add": 0, "delete": 0}
     try:
+        Handler = None
+        if OnCount:
+            Handler = CountingOutputHandler(OnCount)
+            P4Conn.handler = Handler
         Args = ["reconcile"]
         if Parallel > 0:
             Args.append(f"--parallel=threads={Parallel}")
         Args.append(CmdTarget)
         Output = P4Conn.run(*Args)
-        for Item in Output:
-            if isinstance(Item, dict):
-                Action = Item.get("action", "")
-                if Action in Result:
-                    Result[Action] += 1
+        if Handler:
+            Result = Handler.Actions
+        else:
+            for Item in Output:
+                if isinstance(Item, dict):
+                    Action = Item.get("action", "")
+                    if Action in Result:
+                        Result[Action] += 1
     except P4Exception as Err:
         ErrStr = str(Err).lower()
         if "no such file(s)" not in ErrStr and "no file(s) to reconcile" not in ErrStr:
