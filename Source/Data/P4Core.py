@@ -467,7 +467,7 @@ def RunReconcile(P4Conn: P4, CmdTarget: str, Parallel: int = 8) -> dict:
                     Result[Action] += 1
     except P4Exception as Err:
         ErrStr = str(Err).lower()
-        if "no such file(s)" not in ErrStr:
+        if "no such file(s)" not in ErrStr and "no file(s) to reconcile" not in ErrStr:
             raise
     return Result
 
