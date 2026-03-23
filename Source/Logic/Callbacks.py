@@ -44,6 +44,7 @@ class AppCallbacks:
         self.UI.StreamCombo.bind("<Button-1>", self.OnStreamDropdown)
         self.UI.StreamCombo.bind("<<ComboboxSelected>>", self.OnStreamSelected)
         self.UI.ApplyButton.configure(command=self.OnApply)
+        self.UI.DeleteButton.configure(command=self.OnDeleteWorkspace)
         self.UI.WorkspaceEntry.bind("<Button-1>", self.OnWorkspaceClick)
         self.UI.OfflineCheckbox.configure(command=self.OnOfflineChanged)
         # 通用配置事件
@@ -206,6 +207,54 @@ class AppCallbacks:
             self.SelectStreamPath = f"//{PathArray[0]}/{PathArray[1]}/{self.UI.P4StreamVar.get()}"
         self.UpdateWorkspaceFromCache()
         self.UpdateWorkspacePreview()
+
+    def OnDeleteWorkspace(self):
+        """删除当前选中的工作区并清理缓存"""
+        Tag = self.UI.WorkspaceTagVar.get().strip()
+        Project = self.UI.P4ProjectVar.get()
+        Stream = self.UI.P4StreamVar.get()
+        if not Tag or not Project or not Stream:
+            messagebox.showwarning("缺少配置", "请先选择项目和分支")
+            return
+
+        TargetClientName = f"{Tag}_{Project}_{Stream}"
+        if not ClientExists(self.P4, TargetClientName):
+            # 服务器上不存在，只清理本地缓存
+            if self.SelectStreamPath:
+                self.GlobalCfg.RemoveStreamCache(self.SelectStreamPath)
+                self.GlobalCfg.RemoveWorkspaceTimestamp(TargetClientName)
+            self.UI.LogMessage(f"工作区 {TargetClientName} 不存在，已清理本地缓存。")
+            self.UpdateWorkspaceFromCache()
+            self.UpdateWorkspacePreview()
+            self.UpdateUsedWorkspace()
+            return
+
+        Result = messagebox.askyesno("确认删除",
+            f"确定要删除工作区 {TargetClientName}？\n\n"
+            f"此操作将删除服务器上的工作区并清理本地缓存。")
+        if not Result:
+            return
+
+        # 检查未提交文件
+        OpenedFiles = GetOpenedFiles(self.P4, TargetClientName)
+        if OpenedFiles:
+            Cnt = len(OpenedFiles)
+            Preview = "\n".join([File.get('depotFile', '') for File in OpenedFiles[:5] if isinstance(File, dict)])
+            messagebox.showerror("无法删除",
+                f"工作区 {TargetClientName} 有 {Cnt} 个未提交文件：\n{Preview}\n\n请先处理后重试。")
+            return
+
+        try:
+            DeleteClient(self.P4, TargetClientName)
+            self.GlobalCfg.RemoveWorkspaceTimestamp(TargetClientName)
+            if self.SelectStreamPath:
+                self.GlobalCfg.RemoveStreamCache(self.SelectStreamPath)
+            self.UI.LogMessage(f"已删除工作区 {TargetClientName} 并清理缓存。")
+            self.UpdateWorkspaceFromCache()
+            self.UpdateWorkspacePreview()
+            self.UpdateUsedWorkspace()
+        except Exception as Err:
+            messagebox.showerror("删除失败", f"删除工作区失败：{Err}")
 
     def OnApply(self):
         """一键切换按钮点击事件"""

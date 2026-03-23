@@ -152,6 +152,14 @@ class GlobalConfig:
             self.Config["StreamCache"] = Cache
             self.Save()
 
+    def RemoveStreamCache(self, StreamPath: str):
+        """删除流缓存条目"""
+        Cache = self.Config.get("StreamCache", {})
+        if StreamPath in Cache:
+            del Cache[StreamPath]
+            self.Config["StreamCache"] = Cache
+            self.Save()
+
     def SetStreamNeedSync(self, StreamPath: str, NeedSync: bool):
         """设置流是否需要同步"""
         Cache = self.Config.get("StreamCache", {})

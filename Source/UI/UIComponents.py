@@ -125,10 +125,17 @@ class AppUI:
         self.OfflineCheckbox.grid(row=2, column=0, columnspan=4, pady=5)
         self.WidgetsDefaultSettings.append([self.OfflineCheckbox, 'normal', ''])
 
-        # 第四行：切换按钮
-        self.ApplyButton = tk.Button(WorkspaceFrame, text="切换并打开 P4V")
-        self.ApplyButton.grid(row=3, column=0, columnspan=4, pady=10)
+        # 第四行：切换按钮 + 删除按钮
+        ButtonFrame = tk.Frame(WorkspaceFrame)
+        ButtonFrame.grid(row=3, column=0, columnspan=4, pady=10)
+
+        self.ApplyButton = tk.Button(ButtonFrame, text="切换并打开 P4V")
+        self.ApplyButton.grid(row=0, column=0, padx=(0, 10))
         self.WidgetsDefaultSettings.append([self.ApplyButton, 'normal', self.ApplyButton.cget('fg')])
+
+        self.DeleteButton = tk.Button(ButtonFrame, text="删除工作区", fg='red')
+        self.DeleteButton.grid(row=0, column=1)
+        self.WidgetsDefaultSettings.append([self.DeleteButton, 'normal', 'red'])
 
         RowIdx += 1
 
