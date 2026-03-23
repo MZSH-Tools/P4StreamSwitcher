@@ -78,6 +78,15 @@ class GlobalConfig:
         self.Config["AutoRmdir"] = Enabled
         self.Save()
 
+    def GetLineEnd(self) -> str:
+        """获取换行符设置"""
+        return self.Config.get("LineEnd", "win")
+
+    def SetLineEnd(self, Value: str):
+        """设置换行符"""
+        self.Config["LineEnd"] = Value
+        self.Save()
+
     def GetWorkspaceTimestamps(self) -> dict:
         """获取工作区时间戳字典"""
         return self.Config.get("WorkspaceTimestamps", {})

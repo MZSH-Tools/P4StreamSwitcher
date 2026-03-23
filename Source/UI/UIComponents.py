@@ -84,8 +84,15 @@ class AppUI:
 
         self.AutoRmdirVar = tk.BooleanVar(value=True)
         self.AutoRmdirCheckbox = tk.Checkbutton(OptionsFrame, text="自动删除空文件夹", variable=self.AutoRmdirVar)
-        self.AutoRmdirCheckbox.grid(row=0, column=3)
+        self.AutoRmdirCheckbox.grid(row=0, column=3, padx=(0, 20))
         self.WidgetsDefaultSettings.append([self.AutoRmdirCheckbox, 'normal', ''])
+
+        tk.Label(OptionsFrame, text="换行符:").grid(row=0, column=4, padx=(0, 5))
+        self.LineEndVar = tk.StringVar(value="win")
+        self.LineEndCombo = ttk.Combobox(OptionsFrame, textvariable=self.LineEndVar, state='readonly',
+            values=["local", "unix", "mac", "win", "share"], width=6)
+        self.LineEndCombo.grid(row=0, column=5)
+        self.WidgetsDefaultSettings.append([self.LineEndCombo, 'readonly', ''])
 
         RowIdx += 1
 
