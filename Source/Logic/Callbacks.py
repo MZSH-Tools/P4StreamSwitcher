@@ -411,7 +411,7 @@ class AppCallbacks:
                 self.UI.LogMessage("have list 更新完成。")
             except P4Exception as Err:
                 ErrStr = str(Err).lower()
-                if "up-to-date" in ErrStr or "no file(s)" in ErrStr:
+                if "up-to-date" in ErrStr or "no such file(s)" in ErrStr:
                     self.UI.LogMessage("have list 已是最新状态。")
                 else:
                     raise
@@ -443,7 +443,7 @@ class AppCallbacks:
                     self.UI.LogMessage(f"have list 包含 {len(HavePaths)} 个文件。")
                 except P4Exception as Err:
                     ErrStr = str(Err).lower()
-                    if "no file(s)" in ErrStr:
+                    if "no such file(s)" in ErrStr:
                         HavePaths = set()
                         self.UI.LogMessage("have list 为空。")
                     else:
@@ -513,13 +513,13 @@ class AppCallbacks:
         """同步清理完成后的清理工作"""
         self.UI.HideProgressBar()
         self.UI.EnableUI()
+        # 无论成功或失败都清除 NeedSync，避免反复重试
+        if self.SelectStreamPath:
+            self.GlobalCfg.SetStreamNeedSync(self.SelectStreamPath, False)
         if HasError:
             self.UI.UpdateStatus("错误", "red")
             self.UI.LogError("操作完成，但有错误发生。")
         else:
-            # 同步成功，清除 NeedSync 标记
-            if self.SelectStreamPath:
-                self.GlobalCfg.SetStreamNeedSync(self.SelectStreamPath, False)
             self.UI.UpdateStatus("就绪", "green")
             self.UI.LogMessage("操作已完成。")
             # 打开 P4V
@@ -557,11 +557,14 @@ class AppCallbacks:
             self.UI.P4WorkspaceVar.set(Cached)
             self.UI.SetWorkspaceSource(IsCached=True)
         else:
-            # 最后使用默认路径
-            DefaultPath = os.path.join(self.DefaultWorkspaceRoot, Project)
+            # 最后使用默认路径：优先从同名分支推断，其次用当前工作区的父目录
+            InferredRoot = self._InferWorkspaceRoot(Stream)
+            Root = InferredRoot or self.DefaultWorkspaceRoot
+            DefaultPath = os.path.join(Root, Project)
             self.UI.P4WorkspaceVar.set(DefaultPath)
             self.UI.SetWorkspaceSource(IsCached=False)
-            self.UI.LogMessage(f"该流没有缓存记录，使用默认路径: {DefaultPath}")
+            Source = "同分支推断" if InferredRoot else "当前工作区"
+            self.UI.LogMessage(f"该流没有缓存记录，使用默认路径（{Source}）: {DefaultPath}")
 
     def UpdateWorkspacePreview(self):
         """更新工作区名称预览"""
@@ -615,6 +618,36 @@ class AppCallbacks:
         """离线复选框状态改变事件，保存到缓存"""
         if self.SelectStreamPath:
             self.GlobalCfg.SetStreamOffline(self.SelectStreamPath, self.UI.OfflineVar.get())
+
+    def _InferWorkspaceRoot(self, StreamName: str) -> str | None:
+        """从同名分支的已有工作区推断最常用的根目录"""
+        from collections import Counter
+        # 先从缓存推断
+        InferredRoot = self.GlobalCfg.InferRootByStream(StreamName, self.SelectStreamPath)
+        if InferredRoot:
+            return InferredRoot
+        # 缓存不足时，从 P4 服务器同分支工作区补充
+        Tag = self.UI.WorkspaceTagVar.get().strip()
+        if not Tag:
+            return None
+        try:
+            Parents = []
+            Prefix = f"{Tag}_"
+            for Client in GetAllClients(self.P4):
+                Name = Client.get('client', '')
+                if not Name.startswith(Prefix):
+                    continue
+                Parts = Name[len(Prefix):].split('_')
+                # 格式为 标识_项目_分支，最后一段是分支名
+                if len(Parts) >= 2 and Parts[-1] == StreamName:
+                    Root = GetClientRoot(self.P4, Name)
+                    if Root:
+                        Parents.append(os.path.dirname(Root))
+            if Parents:
+                return Counter(Parents).most_common(1)[0][0]
+        except Exception:
+            pass
+        return None
 
     def FindExistingParent(self, Path: str) -> str:
         """向上查找存在的父目录"""

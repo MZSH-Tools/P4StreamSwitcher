@@ -263,7 +263,7 @@ def GetOpenedFiles(P4Conn: P4, ClientName: str) -> list:
         return P4Conn.run("opened", "-C", ClientName)
     except P4Exception as Err:
         ErrStr = str(Err).lower()
-        if "not opened" in ErrStr or "no file(s)" in ErrStr:
+        if "not opened" in ErrStr or "no such file(s)" in ErrStr:
             return []
         raise
 
@@ -285,7 +285,7 @@ def GetDifferentFiles(P4Conn: P4, CmdTarget: str) -> list:
         return [Item.get('depotFile', '') for Item in Result if isinstance(Item, dict)]
     except P4Exception as Err:
         ErrStr = str(Err).lower()
-        if "no file(s)" in ErrStr or "not on client" in ErrStr:
+        if "no such file(s)" in ErrStr or "not on client" in ErrStr:
             return []
         raise
 
@@ -297,7 +297,7 @@ def GetMissingFiles(P4Conn: P4, CmdTarget: str) -> list:
         return [Item.get('depotFile', '') for Item in Result if isinstance(Item, dict)]
     except P4Exception as Err:
         ErrStr = str(Err).lower()
-        if "no file(s)" in ErrStr or "not on client" in ErrStr:
+        if "no such file(s)" in ErrStr or "not on client" in ErrStr:
             return []
         raise
 
@@ -467,7 +467,7 @@ def RunReconcile(P4Conn: P4, CmdTarget: str, Parallel: int = 8) -> dict:
                     Result[Action] += 1
     except P4Exception as Err:
         ErrStr = str(Err).lower()
-        if "no file(s)" not in ErrStr:
+        if "no such file(s)" not in ErrStr:
             raise
     return Result
 
